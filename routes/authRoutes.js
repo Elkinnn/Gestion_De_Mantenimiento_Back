@@ -1,15 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const authController = require('../controllers/authController'); // Importar el controlador
+const { authenticateToken } = require('../middleware/authMiddleware'); // Middleware de autenticación
 
-// Ruta para el registro de usuario
-router.post('/register', authController.register);
+// Ruta de login
+router.post('/login', authController.login); // Vincula la lógica del login con el controlador
 
-// Ruta para el login de usuario
-router.post('/login', authController.login);
-
-// Ruta para obtener los datos del usuario autenticado
-router.get('/user', authenticateToken, authController.getUser);
+// Ruta protegida del dashboard
+router.get('/dashboard', authenticateToken, (req, res) => {
+  res.json({ message: 'Bienvenido al dashboard', user: req.user });
+});
 
 module.exports = router;
