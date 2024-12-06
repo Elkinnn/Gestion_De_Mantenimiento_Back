@@ -38,7 +38,8 @@ exports.login = (req, res) => {
       }
 
       const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      console.log('Token generado:', token);
+      return res.status(200).json({ message: 'Login exitoso', token, role: user.role }); // Aquí agregas el role
+
 
       return res.status(200).json({ message: 'Login exitoso', token });
     });

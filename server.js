@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-
 require('dotenv').config(); // Cargar variables de entorno
 
 const authRoutes = require('./routes/authRoutes'); // Importar las rutas de autenticación
+const activosRoutes = require('./routes/activosRoutes'); // Importar las rutas de activos
+const { authenticateToken } = require('./middleware/authMiddleware'); // Middleware de autenticación
+const { authorizeRoles } = require('./middleware/authMiddleware'); // Middleware de autorización
 
 const app = express(); // Inicializar Express
 
@@ -21,6 +23,9 @@ app.use(express.json());
 
 // Usar las rutas de autenticación
 app.use('/api/auth', authRoutes);
+
+// Usar las rutas de activos (protegidas por autenticación y autorización)
+app.use('/api/activos', authenticateToken, authorizeRoles(['Admin', 'Tecnico']), activosRoutes);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
