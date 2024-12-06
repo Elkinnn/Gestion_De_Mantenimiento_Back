@@ -37,11 +37,10 @@ exports.login = (req, res) => {
         return res.status(401).json({ message: 'Contraseña incorrecta' });
       }
 
-      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '10s' });
+
       return res.status(200).json({ message: 'Login exitoso', token, role: user.role }); // Aquí agregas el role
 
-
-      return res.status(200).json({ message: 'Login exitoso', token });
     });
   });
 };
