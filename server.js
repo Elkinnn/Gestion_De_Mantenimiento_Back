@@ -18,14 +18,15 @@ app.use((req, res, next) => {
 // Habilitar CORS
 app.use(cors());
 
-// Middleware para procesar JSON
+// Middleware para procesar JSON y datos de formularios
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Necesario para procesar datos de formularios
 
 // Usar las rutas de autenticación
 app.use('/api/auth', authRoutes);
 
-// Usar las rutas de activos (protegidas por autenticación y autorización)
-app.use('/api/activos', authenticateToken, authorizeRoles(['Admin', 'Tecnico']), activosRoutes);
+// Usar las rutas de activos
+app.use('/api/activos', authenticateToken, activosRoutes);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
