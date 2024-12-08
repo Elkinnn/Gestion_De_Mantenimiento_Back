@@ -115,6 +115,7 @@ const insertarActivo = (req, res) => {
     const { proceso_compra, codigo, nombre, estado, ubicacion_id, proveedor_id, tipo_activo_id } = req.body;
 
     if (!proceso_compra || !codigo || !nombre || !estado || !ubicacion_id || !proveedor_id || !tipo_activo_id) {
+        console.error('Error: Datos incompletos', req.body);
         res.status(400).json({ message: 'Todos los campos son obligatorios' });
         return;
     }
@@ -126,8 +127,10 @@ const insertarActivo = (req, res) => {
 
     db.query(query, [proceso_compra, codigo, nombre, estado, ubicacion_id, proveedor_id, tipo_activo_id], (err) => {
         if (err) {
+            console.error('Error al insertar el activo:', err);
             res.status(500).json({ message: 'Error al crear el activo', error: err.message });
         } else {
+            console.log('Activo creado con éxito:'); // Registrar éxito
             res.status(201).json({ message: 'Activo creado correctamente' });
         }
     });
