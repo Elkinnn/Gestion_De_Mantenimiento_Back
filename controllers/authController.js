@@ -38,7 +38,7 @@ exports.login = (req, res) => {
       }
 
       // Aquí creas el token
-      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '10s' });
+      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
       // Responde con el token, rol y nombre de usuario
       return res.status(200).json({
