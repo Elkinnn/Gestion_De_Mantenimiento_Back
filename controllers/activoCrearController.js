@@ -29,8 +29,7 @@ const getDatosCombo = (req, res) => {
     if (tabla === 'estados') {
         // Devuelve los valores fijos del ENUM para "estados"
         res.status(200).json([
-            { nombre: 'Funcionando' },
-            { nombre: 'No Funcionando' },
+            { nombre: 'Funcionando' },         
         ]);
         return;
     }
