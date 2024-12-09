@@ -16,6 +16,8 @@ router.get('/codigo', authenticateToken, getCodigoActivo);
 // Ruta para obtener datos para los combos
 router.get('/combo/:tabla', authenticateToken, getDatosCombo);
 
+router.get('/combo/:tabla/:contexto', authenticateToken, getDatosCombo);
+
 // Ruta para insertar un nuevo activo
 router.post('/', authenticateToken, insertarActivo);
 

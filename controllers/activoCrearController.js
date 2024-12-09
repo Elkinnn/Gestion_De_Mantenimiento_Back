@@ -24,31 +24,38 @@ const getCodigoActivo = (req, res) => {
 
 // Obtener nombres para los combos dinámicos (generalizado para todas las tablas)
 const getDatosCombo = (req, res) => {
-    const { tabla } = req.params;
+    const { tabla, contexto } = req.params; // Extraer "tabla" y "contexto" de los parámetros
 
     if (tabla === 'estados') {
-        // Devuelve los valores fijos del ENUM para "estados"
-        res.status(200).json([
-            { nombre: 'Funcionando' },         
-        ]);
-        return;
+        // Valores para "estados"
+        const estados = [
+            { nombre: 'Funcionando' },
+            { nombre: 'No Funcionando' },
+        ];
+
+        if (contexto === 'crear') {
+            // Solo devolver "Funcionando" si el contexto es "crear"
+            return res.status(200).json(estados.filter((estado) => estado.nombre === 'Funcionando'));
+        }
+
+        // Si el contexto es "editar" o no se especifica, devolver todos
+        return res.status(200).json(estados);
     }
 
     if (tabla === 'procesos_compra') {
         // Devuelve los procesos de compra existentes más el siguiente generado
         db.query("SELECT DISTINCT proceso_compra AS nombre FROM activos", (err, result) => {
             if (err) {
-                res.status(500).json({ message: 'Error al obtener procesos de compra', error: err.message });
-            } else {
-                generarProcesoCompra((error, siguienteProceso) => {
-                    if (error) {
-                        res.status(500).json({ message: 'Error al generar el siguiente proceso', error: error.message });
-                    } else {
-                        result.push({ nombre: siguienteProceso }); // Agrega el siguiente proceso generado
-                        res.status(200).json(result);
-                    }
-                });
+                return res.status(500).json({ message: 'Error al obtener procesos de compra', error: err.message });
             }
+
+            generarProcesoCompra((error, siguienteProceso) => {
+                if (error) {
+                    return res.status(500).json({ message: 'Error al generar el siguiente proceso', error: error.message });
+                }
+                result.push({ nombre: siguienteProceso }); // Agrega el siguiente proceso generado
+                res.status(200).json(result);
+            });
         });
         return;
     }
@@ -62,16 +69,14 @@ const getDatosCombo = (req, res) => {
 
     const query = queryMap[tabla];
     if (!query) {
-        res.status(400).json({ message: `Tabla '${tabla}' no soportada para datos del combo.` });
-        return;
+        return res.status(400).json({ message: `Tabla '${tabla}' no soportada para datos del combo.` });
     }
 
     db.query(query, (err, result) => {
         if (err) {
-            res.status(500).json({ message: `Error al obtener datos de la tabla '${tabla}'`, error: err.message });
-        } else {
-            res.status(200).json(result);
+            return res.status(500).json({ message: `Error al obtener datos de la tabla '${tabla}'`, error: err.message });
         }
+        res.status(200).json(result);
     });
 };
 
