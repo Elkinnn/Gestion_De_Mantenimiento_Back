@@ -19,4 +19,6 @@ router.get('/combo/:tabla', authenticateToken, getDatosCombo);
 // Ruta para insertar un nuevo activo
 router.post('/', authenticateToken, insertarActivo);
 
+router.get('/:id', authenticateToken, activoController.getActivoById);
+
 module.exports = router;
