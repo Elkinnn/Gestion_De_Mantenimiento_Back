@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/authMiddleware');
 const activoController = require('../controllers/activoController');
 const { getProcesoCompra, getCodigoActivo, getDatosCombo, insertarActivo } = require('../controllers/activoCrearController');
+const { updateActivo } = require('../controllers/activoActualizarController');
 
 // Ruta para obtener los activos
 router.get('/menu', authenticateToken, activoController.getAllActivos);
@@ -22,5 +23,7 @@ router.get('/combo/:tabla/:contexto', authenticateToken, getDatosCombo);
 router.post('/', authenticateToken, insertarActivo);
 
 router.get('/:id', authenticateToken, activoController.getActivoById);
+
+router.put('/:id', authenticateToken, updateActivo);
 
 module.exports = router;
