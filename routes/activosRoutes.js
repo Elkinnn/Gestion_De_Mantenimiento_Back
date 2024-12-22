@@ -1,20 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, authorizeRole } = require('../middleware/authMiddleware');
+const { authenticateToken } = require('../middleware/authMiddleware');
+const activoController = require('../controllers/activoController');
+const { getProcesoCompra, getCodigoActivo, getDatosCombo, insertarActivo } = require('../controllers/activoCrearController');
+const { updateActivo } = require('../controllers/activoActualizarController');
 
-// Ruta para listar los activos (disponible para técnicos y administradores)
-router.get('/menu', authenticateToken, (req, res) => {
-  res.json({ message: 'Lista de activos registrados' });
-});
+// Ruta para obtener los activos
+router.get('/menu', authenticateToken, activoController.getAllActivos);
 
-// Ruta para realizar mantenimiento (solo disponible para técnicos)
-router.post('/mantenimiento', authenticateToken, authorizeRole('Tecnico'), (req, res) => {
-  res.json({ message: 'Formulario de mantenimiento enviado' });
-});
+// Ruta para obtener el siguiente proceso de compra
+router.get('/proceso-compra', authenticateToken, getProcesoCompra);
 
-// Ruta para funcionalidades administrativas (solo disponible para administradores)
-router.post('/admin', authenticateToken, authorizeRole('Admin'), (req, res) => {
-  res.json({ message: 'Acceso a funcionalidades administrativas' });
-});
+// Ruta para obtener el siguiente código de activo
+router.get('/codigo', authenticateToken, getCodigoActivo);
+
+// Ruta para obtener datos para los combos
+router.get('/combo/:tabla', authenticateToken, getDatosCombo);
+
+router.get('/combo/:tabla/:contexto', authenticateToken, getDatosCombo);
+
+// Ruta para insertar un nuevo activo
+router.post('/', authenticateToken, insertarActivo);
+
+router.get('/:id', authenticateToken, activoController.getActivoById);
+
+router.put('/:id', authenticateToken, updateActivo);
 
 module.exports = router;

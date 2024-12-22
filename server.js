@@ -24,8 +24,8 @@ app.use(express.json());
 // Usar las rutas de autenticación
 app.use('/api/auth', authRoutes);
 
-// Usar las rutas de activos (protegidas por autenticación y autorización)
-app.use('/api/activos', authenticateToken, authorizeRoles(['Admin', 'Tecnico']), activosRoutes);
+// Usar las rutas de activos (con autenticación, pero autorización solo si es necesario)
+app.use('/api/activos', authenticateToken, activosRoutes); // No es necesario usar authorizeRoles aquí ya que puedes controlar la autorización en rutas específicas
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
