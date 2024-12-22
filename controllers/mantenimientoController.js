@@ -2,9 +2,7 @@ const db = require('../config/db'); // Conexión a la base de datos
 
 // Controlador para obtener todos los mantenimientos
 const obtenerMantenimientos = (req, res) => {
-  const { year, month, status, provider } = req.query;
-
-  console.log('Filtros recibidos en el backend:', { year, month, status, provider }); // Verificar qué llega del frontend
+  const { year, month, status, provider, date, technician } = req.query;
 
   let query = `
     SELECT 
@@ -29,10 +27,10 @@ const obtenerMantenimientos = (req, res) => {
   if (month) query += ` AND MONTH(m.fecha_inicio) = ${db.escape(month)}`;
   if (status) query += ` AND m.estado = ${db.escape(status)}`;
   if (provider) query += ` AND m.proveedor_id = ${db.escape(provider)}`;
+  if (date) query += ` AND DATE(m.fecha_inicio) = ${db.escape(date)}`; // Filtro de fecha
+  if (technician) query += ` AND m.tecnico_id = ${db.escape(technician)}`; // Filtro de técnico
 
   query += ` GROUP BY m.id ORDER BY m.fecha_inicio DESC;`;
-
-  console.log('Consulta generada:', query); // Verificar la consulta generada
 
   db.query(query, (error, results) => {
     if (error) {
@@ -52,22 +50,25 @@ const obtenerFiltros = (req, res) => {
   const queryMonths = `SELECT DISTINCT MONTH(fecha_inicio) AS month FROM mantenimientos ORDER BY month ASC;`;
   const queryStates = `SELECT DISTINCT estado FROM mantenimientos;`;
   const queryProviders = `SELECT id, nombre AS name FROM proveedores;`;
-
+  const queryTechnicians = `SELECT id, username AS name FROM usuarios;`;
   // Ejecutar todas las consultas de forma paralela
   Promise.all([
     new Promise((resolve, reject) => db.query(queryYears, (err, results) => (err ? reject(err) : resolve(results)))),
     new Promise((resolve, reject) => db.query(queryMonths, (err, results) => (err ? reject(err) : resolve(results)))),
     new Promise((resolve, reject) => db.query(queryStates, (err, results) => (err ? reject(err) : resolve(results)))),
     new Promise((resolve, reject) => db.query(queryProviders, (err, results) => (err ? reject(err) : resolve(results)))),
+    new Promise((resolve, reject) => db.query(queryTechnicians, (err, results) => (err ? reject(err) : resolve(results)))), // Consulta para todos los usuarios
   ])
-    .then(([years, months, states, providers]) => {
-      res.status(200).json({ years, months, states, providers });
+    .then(([years, months, states, providers, technicians]) => {
+      res.status(200).json({ years, months, states, providers, technicians });
     })
     .catch((error) => {
       console.error('Error al obtener filtros:', error);
       res.status(500).json({ error: 'Error al obtener filtros' });
     });
 };
+
+
 
 module.exports = {
   obtenerMantenimientos,
