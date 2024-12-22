@@ -4,6 +4,7 @@ require('dotenv').config(); // Cargar variables de entorno
 
 const authRoutes = require('./routes/authRoutes'); // Importar las rutas de autenticación
 const activosRoutes = require('./routes/activosRoutes'); // Importar las rutas de activos
+const mantenimientosRoutes = require('./routes/mantenimientosRoutes');
 const { authenticateToken } = require('./middleware/authMiddleware'); // Middleware de autenticación
 const { authorizeRoles } = require('./middleware/authMiddleware'); // Middleware de autorización
 
@@ -22,10 +23,22 @@ app.use(cors());
 app.use(express.json());
 
 // Usar las rutas de autenticación
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', (req, res, next) => {
+  console.log('Entrando a /api/auth');
+  next();
+}, authRoutes);
 
 // Usar las rutas de activos (con autenticación, pero autorización solo si es necesario)
-app.use('/api/activos', authenticateToken, activosRoutes); // No es necesario usar authorizeRoles aquí ya que puedes controlar la autorización en rutas específicas
+app.use('/api/activos', authenticateToken, (req, res, next) => {
+  console.log('Entrando a /api/activos');
+  next();
+}, activosRoutes);
+
+// Usar las rutas de mantenimientos (con autenticación)
+app.use('/api/mantenimientos', authenticateToken, (req, res, next) => {
+  console.log('Entrando a /api/mantenimientos');
+  next();
+}, mantenimientosRoutes);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
