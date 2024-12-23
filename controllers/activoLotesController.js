@@ -50,11 +50,28 @@ const uploadLotes = async (req, res) => {
       }
 
       // Validar series duplicadas
-      if (series.has(row.serie)) {
+      if (series.has(nombre)) {
         fs.unlinkSync(req.file.path); // Eliminar archivo temporal
-        return res.status(400).json({ message: 'Error al cargar: Existen serie de activos repetitivos.', errors: ['duplicate_series'] });
+        return res.status(400).json({ message: 'Error al cargar: Existen activos con nombres duplicados.', errors: ['duplicate_names'] });
       }
-      series.add(row.serie);
+      series.add(nombre);
+
+      /*// Verificar si el nombre ya existe en la base de datos
+      const [existingName] = await db.promise().query('SELECT nombre FROM activos WHERE nombre = ?', [nombre]);
+      if (existingName.length > 0) {
+        fs.unlinkSync(req.file.path); // Eliminar archivo temporal
+        return res.status(400).json({ message: `Error al cargar: El activo con nombre "${nombre}" ya existe en la base de datos.`, errors: ['name_already_exists'] });
+      }*/
+     // Verificar si el nombre ya existe en la base de datos
+const [existingName] = await db.promise().query('SELECT nombre FROM activos WHERE nombre = ?', [nombre]);
+if (existingName.length > 0) {
+  fs.unlinkSync(req.file.path); // Eliminar archivo temporal
+  return res.status(400).json({
+    message: 'Error al cargar: Existen serie de activos repetitivos.',
+    errors: ['duplicate_names'],
+  });
+}
+
 
       // Generar código incremental (simulación, deberías obtener el último código desde la base de datos)
       const [lastCodeRow] = await db.promise().query('SELECT MAX(id) as last_id FROM activos');
@@ -73,7 +90,9 @@ const uploadLotes = async (req, res) => {
     return res.status(200).json({ message: 'Activos cargados con éxito.' });
   } catch (error) {
     console.error(error);
-    fs.unlinkSync(req.file.path); // Eliminar archivo temporal en caso de error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path); // Eliminar archivo temporal en caso de error
+    }
     return res.status(500).json({ message: 'Error al procesar el archivo.', error });
   }
 };
