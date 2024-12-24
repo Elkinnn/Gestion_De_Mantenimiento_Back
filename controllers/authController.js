@@ -38,8 +38,13 @@ exports.login = (req, res) => {
       }
 
       // Aquí creas el token
-      const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
+      const token = jwt.sign(
+        { id: user.id, role: user.role, username: user.username }, // Agrega `username`
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      
       // Responde con el token, rol y nombre de usuario
       return res.status(200).json({
         message: 'Login exitoso',
@@ -50,3 +55,17 @@ exports.login = (req, res) => {
     });
   });
 };
+
+
+exports.getUserInfo = (req, res) => {
+  console.log('Información del usuario en getUserInfo:', req.user); // Verificar datos disponibles
+  if (req.user) {
+    res.json({
+      username: req.user.username, // Confirmar que este valor existe
+      role: req.user.role,
+    });
+  } else {
+    res.status(401).json({ message: 'Usuario no autenticado' });
+  }
+};
+

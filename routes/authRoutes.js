@@ -21,4 +21,6 @@ router.get('/mantenimiento', authenticateToken, authorizeRole('Tecnico'), (req, 
   res.json({ message: 'Acceso a mantenimiento', user: req.user });
 });
 
+router.get('/user-info', authenticateToken, authController.getUserInfo);
+
 module.exports = router;
