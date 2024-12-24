@@ -27,8 +27,8 @@ const obtenerMantenimientos = (req, res) => {
   if (month) query += ` AND MONTH(m.fecha_inicio) = ${db.escape(month)}`;
   if (status) query += ` AND m.estado = ${db.escape(status)}`;
   if (provider) query += ` AND m.proveedor_id = ${db.escape(provider)}`;
-  if (date) query += ` AND DATE(m.fecha_inicio) = ${db.escape(date)}`; // Filtro de fecha
-  if (technician) query += ` AND m.tecnico_id = ${db.escape(technician)}`; // Filtro de técnico
+  if (date) query += ` AND DATE(m.fecha_inicio) = ${db.escape(date)}`;
+  if (technician) query += ` AND m.tecnico_id = ${db.escape(technician)}`;
 
   query += ` GROUP BY m.id ORDER BY m.fecha_inicio DESC;`;
 
@@ -41,8 +41,6 @@ const obtenerMantenimientos = (req, res) => {
     }
   });
 };
-
-
 
 
 const obtenerFiltros = (req, res) => {
@@ -68,10 +66,45 @@ const obtenerFiltros = (req, res) => {
     });
 };
 
+// Controlador para obtener todos los usuarios
+const obtenerUsuarios = (req, res) => {
+  const query = 'SELECT id, username FROM usuarios';
+
+  db.query(query, (error, results) => {
+    if (error) {
+      console.error('Error al obtener usuarios:', error);
+      res.status(500).json({ error: 'Error al obtener usuarios' });
+    } else {
+      res.status(200).json(results);
+    }
+  });
+};
+
+const obtenerUltimoNumero = (req, res) => {
+  const query = 'SELECT MAX(id) AS ultimo FROM mantenimientos';
+  console.log('Ejecutando consulta:', query);
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error al ejecutar la consulta:', err);
+      return res.status(500).json({ message: 'Error interno del servidor' });
+    }
+    console.log('Resultados de la consulta:', results);
+    const ultimo = results[0]?.ultimo || 0;
+    const siguienteNumero = `MNT_${String(ultimo + 1).padStart(3, '0')}`;
+    console.log('Siguiente número generado:', siguienteNumero);
+    res.status(200).json({ siguienteNumero });
+  });
+};
+
+
+
+
 
 
 module.exports = {
   obtenerMantenimientos,
   obtenerFiltros, // Agregar el nuevo controlador
+  obtenerUsuarios,
+  obtenerUltimoNumero // Nuevo controlador exportado
 };
-
