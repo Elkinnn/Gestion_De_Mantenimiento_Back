@@ -7,6 +7,7 @@ const activosRoutes = require('./routes/activosRoutes'); // Importar las rutas d
 const mantenimientosRoutes = require('./routes/mantenimientosRoutes');
 const usuariosRoutes = require('./routes/usuariosRoutes');
 const proveedoresRoutes = require('./routes/proveedoresRoutes');const { authenticateToken } = require('./middleware/authMiddleware'); // Middleware de autenticación
+const especificacionesRoutes = require('./routes/especificacionesRoutes');
 const { authorizeRoles } = require('./middleware/authMiddleware'); // Middleware de autorización
 
 const app = express(); // Inicializar Express
@@ -50,6 +51,7 @@ app.use('/api/proveedores', authenticateToken, (req, res, next) => {
   console.log('Entrando a /api/proveedores');
   next();
 }, proveedoresRoutes);
+app.use('/api/especificaciones', especificacionesRoutes);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {

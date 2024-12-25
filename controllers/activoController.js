@@ -10,6 +10,7 @@ const activoController = {
             a.codigo,
             a.nombre,
             a.estado,
+            a.tipo_activo_id,
             u.nombre AS ubicacion,
             t.nombre AS tipo,
             p.nombre AS proveedor
@@ -47,6 +48,7 @@ const activoController = {
             a.ubicacion_id,
             u.nombre AS ubicacion,
             a.tipo_activo_id,
+            a.tipo_activo_id,
             t.nombre AS tipo,
             a.proveedor_id,
             p.nombre AS proveedor
@@ -77,6 +79,7 @@ listarActivosSimplificados: (req, res) => {
       SELECT 
           a.codigo, 
           a.nombre AS serie, 
+          a.tipo_activo_id,
           t.nombre AS tipo
       FROM activos a
       JOIN tipos_activos t ON a.tipo_activo_id = t.id
