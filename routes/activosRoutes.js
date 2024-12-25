@@ -5,6 +5,7 @@ const activoController = require('../controllers/activoController');
 const { getProcesoCompra, getCodigoActivo, getDatosCombo, insertarActivo } = require('../controllers/activoCrearController');
 const { updateActivo } = require('../controllers/activoActualizarController');
 
+
 // Ruta para obtener los activos
 router.get('/menu', authenticateToken, activoController.getAllActivos);
 
@@ -19,6 +20,7 @@ router.get('/combo/:tabla', authenticateToken, getDatosCombo);
 
 router.get('/combo/:tabla/:contexto', authenticateToken, getDatosCombo);
 
+router.get('/', authenticateToken, activoController.getAllActivos);
 // Ruta para insertar un nuevo activo
 router.post('/', authenticateToken, insertarActivo);
 

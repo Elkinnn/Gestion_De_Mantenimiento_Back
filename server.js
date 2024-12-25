@@ -63,6 +63,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Error interno del servidor' });
 });
 
+app.use(express.json()); // Middleware para parsear JSON
+
+// Registra las rutas
+app.use('/api/activos', activosRoutes);
+
 // Iniciar el servidor
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

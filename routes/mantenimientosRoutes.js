@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   obtenerMantenimientos,
   obtenerFiltros,
-  obtenerUltimoNumero, // Importa la función para manejar el número de mantenimiento
+  obtenerUltimoNumero,
+  crearMantenimiento, // Agregamos esto
 } = require('../controllers/mantenimientoController');
 
 // Ruta para obtener todos los mantenimientos
@@ -23,5 +24,7 @@ router.get('/ultimo-numero', (req, res) => {
   console.log('GET /api/mantenimientos/ultimo-numero - Obteniendo último número');
   obtenerUltimoNumero(req, res); // Llamar al controlador
 });
+
+router.post('/', crearMantenimiento);
 
 module.exports = router;

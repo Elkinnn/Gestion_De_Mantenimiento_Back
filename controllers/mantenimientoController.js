@@ -27,8 +27,8 @@ const obtenerMantenimientos = (req, res) => {
   if (month) query += ` AND MONTH(m.fecha_inicio) = ${db.escape(month)}`;
   if (status) query += ` AND m.estado = ${db.escape(status)}`;
   if (provider) query += ` AND m.proveedor_id = ${db.escape(provider)}`;
-  if (date) query += ` AND DATE(m.fecha_inicio) = ${db.escape(date)}`;
-  if (technician) query += ` AND m.tecnico_id = ${db.escape(technician)}`;
+  if (date) query += ` AND DATE(m.fecha_inicio) = ${db.escape(date)}`; // Filtro de fecha
+  if (technician) query += ` AND m.tecnico_id = ${db.escape(technician)}`; // Filtro de técnico
 
   query += ` GROUP BY m.id ORDER BY m.fecha_inicio DESC;`;
 
@@ -41,7 +41,6 @@ const obtenerMantenimientos = (req, res) => {
     }
   });
 };
-
 
 const obtenerFiltros = (req, res) => {
   const queryYears = `SELECT DISTINCT YEAR(fecha_inicio) AS year FROM mantenimientos ORDER BY year DESC;`;
@@ -98,13 +97,46 @@ const obtenerUltimoNumero = (req, res) => {
 };
 
 
+const crearMantenimiento = (req, res) => {
+  console.log('Datos recibidos:', req.body);
+  const { numero_mantenimiento, proveedor_id, tecnico_id, admin_id, fecha_inicio, fecha_fin, estado } = req.body;
+
+  if (!numero_mantenimiento) {
+      return res.status(400).json({ message: 'El número de mantenimiento es obligatorio.' });
+  }
+
+  if (
+      (proveedor_id && tecnico_id) ||
+      (proveedor_id && admin_id) ||
+      (tecnico_id && admin_id)
+  ) {
+      return res.status(400).json({ message: 'Solo uno de proveedor_id, tecnico_id o admin_id debe tener valor' });
+  }
+
+  const query = `
+      INSERT INTO mantenimientos (numero_mantenimiento, proveedor_id, tecnico_id, admin_id, fecha_inicio, fecha_fin, estado)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+  const values = [numero_mantenimiento, proveedor_id, tecnico_id, admin_id, fecha_inicio, fecha_fin, estado];
+
+  db.query(query, values, (error, results) => {
+      if (error) {
+          console.error('Error al crear mantenimiento:', error);
+          return res.status(500).json({ message: 'Error al crear el mantenimiento' });
+      }
+      res.status(201).json({ message: 'Mantenimiento creado exitosamente', mantenimientoId: results.insertId });
+  });
+};
+
+
 
 
 
 
 module.exports = {
   obtenerMantenimientos,
-  obtenerFiltros, // Agregar el nuevo controlador
+  obtenerFiltros,
   obtenerUsuarios,
-  obtenerUltimoNumero // Nuevo controlador exportado
+  obtenerUltimoNumero,
+  crearMantenimiento, // Agregamos esto
 };
