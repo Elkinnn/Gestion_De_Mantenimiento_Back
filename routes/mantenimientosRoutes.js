@@ -4,7 +4,7 @@ const {
   obtenerMantenimientos,
   obtenerFiltros,
   obtenerUltimoNumero,
-  crearMantenimiento, // Agregamos esto
+  crearMantenimiento, // Crear mantenimiento con activos y especificaciones
 } = require('../controllers/mantenimientoController');
 
 // Ruta para obtener todos los mantenimientos
@@ -25,6 +25,7 @@ router.get('/ultimo-numero', (req, res) => {
   obtenerUltimoNumero(req, res); // Llamar al controlador
 });
 
-router.post('/', crearMantenimiento);
+// Ruta para registrar un nuevo mantenimiento con sus activos y especificaciones
+router.post('/', crearMantenimiento); // Cambiamos a '/registrar' para mayor claridad
 
 module.exports = router;
