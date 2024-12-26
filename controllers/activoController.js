@@ -48,7 +48,6 @@ const activoController = {
             a.ubicacion_id,
             u.nombre AS ubicacion,
             a.tipo_activo_id,
-            a.tipo_activo_id,
             t.nombre AS tipo,
             a.proveedor_id,
             p.nombre AS proveedor
