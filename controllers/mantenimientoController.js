@@ -98,35 +98,44 @@ const obtenerUltimoNumero = (req, res) => {
 
 const crearMantenimiento = (req, res) => {
   console.log('Datos recibidos:', req.body);
-  const { 
-    numero_mantenimiento, 
-    proveedor_id, 
-    tecnico_id, 
-    admin_id, 
-    fecha_inicio, 
-    fecha_fin, 
-    estado, 
-    activos 
+  const {
+    numero_mantenimiento,
+    proveedor_id,
+    tecnico_id,
+    fecha_inicio,
+    fecha_fin,
+    estado,
+    activos,
   } = req.body;
 
+  // Validar campos obligatorios
   if (!numero_mantenimiento) {
     return res.status(400).json({ message: 'El número de mantenimiento es obligatorio.' });
   }
 
-  if ((proveedor_id && tecnico_id) || (proveedor_id && admin_id) || (tecnico_id && admin_id)) {
-    return res.status(400).json({ message: 'Solo uno de proveedor_id, tecnico_id o admin_id debe tener valor' });
+  if (proveedor_id && tecnico_id) {
+    return res.status(400).json({ message: 'Solo uno de proveedor_id o tecnico_id debe tener valor.' });
   }
 
+  // Consulta para insertar mantenimiento
   const query = `
     INSERT INTO mantenimientos (numero_mantenimiento, proveedor_id, tecnico_id, admin_id, fecha_inicio, fecha_fin, estado)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
-  const values = [numero_mantenimiento, proveedor_id, tecnico_id, admin_id, fecha_inicio, fecha_fin, estado];
+  const values = [
+    numero_mantenimiento,
+    proveedor_id || null,
+    tecnico_id || null,
+    null, // admin_id siempre es null
+    fecha_inicio,
+    fecha_fin,
+    estado,
+  ];
 
   db.query(query, values, (error, results) => {
     if (error) {
       console.error('Error al crear mantenimiento:', error);
-      return res.status(500).json({ message: 'Error al crear el mantenimiento' });
+      return res.status(500).json({ message: 'Error al crear el mantenimiento.' });
     }
 
     const mantenimientoId = results.insertId;
@@ -139,98 +148,103 @@ const crearMantenimiento = (req, res) => {
 
       db.query(activosQuery, [activosValues], (activosError, activosResults) => {
         if (activosError) {
-          console.error('Error al registrar activos del mantenimiento:', activosError);
-          return res.status(500).json({ message: 'Error al registrar los activos del mantenimiento' });
+            console.error('Error al registrar activos del mantenimiento:', activosError);
+            return res.status(500).json({ message: 'Error al registrar los activos del mantenimiento.' });
         }
-
-        // **Registrar especificaciones**
-        const mantenimientoActivosIds = activosResults.insertId;
+    
         const especificacionesPromises = [];
-
+        
+        // Mapear los IDs generados por `mantenimientos_activos`
+        const mantenimientoActivosIds = activosResults.insertId; // Primer ID generado
         activos.forEach((activo, index) => {
-          const mantenimientoActivoId = mantenimientoActivosIds + index;
-
-          // Registrar actividades
-          if (activo.especificaciones.actividades.length > 0) {
-            const actividadesQuery = `
-              INSERT INTO mantenimiento_actividades (mantenimiento_activo_id, actividad_id, descripcion)
-              VALUES ?
-            `;
-            const actividadesValues = activo.especificaciones.actividades.map((actividad) => [
-              mantenimientoActivoId,
-              actividad.id,
-              actividad.descripcion,
-            ]);
-            especificacionesPromises.push(
-              new Promise((resolve, reject) => {
-                db.query(actividadesQuery, [actividadesValues], (error) => {
-                  if (error) reject(error);
-                  else resolve();
-                });
-              })
-            );
-          }
-
-          // Registrar componentes
-          if (activo.especificaciones.componentes.length > 0) {
-            const componentesQuery = `
-              INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
-              VALUES ?
-            `;
-            const componentesValues = activo.especificaciones.componentes.map((componente) => [
-              mantenimientoActivoId,
-              componente.id,
-              componente.cantidad || 1,
-            ]);
-            especificacionesPromises.push(
-              new Promise((resolve, reject) => {
-                db.query(componentesQuery, [componentesValues], (error) => {
-                  if (error) reject(error);
-                  else resolve();
-                });
-              })
-            );
-          }
-
-          // Registrar observaciones
-          if (activo.especificaciones.observaciones) {
-            const observacionesQuery = `
-              INSERT INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
-              VALUES (?, ?)
-            `;
-            especificacionesPromises.push(
-              new Promise((resolve, reject) => {
-                db.query(
-                  observacionesQuery,
-                  [mantenimientoActivoId, activo.especificaciones.observaciones],
-                  (error) => {
-                    if (error) reject(error);
-                    else resolve();
-                  }
-                );
-              })
-            );
-          }
+            activo.mantenimiento_activo_id = mantenimientoActivosIds + index; // Asociar ID generado al activo
         });
-
+    
+        // Registrar especificaciones para cada activo
+        activos.forEach((activo) => {
+            // Registrar actividades
+            if (activo.especificaciones?.actividades?.length > 0) {
+                const actividadesQuery = `
+                  INSERT INTO mantenimiento_actividades (mantenimiento_activo_id, actividad_id, descripcion)
+                  VALUES ?
+                `;
+                const actividadesValues = activo.especificaciones.actividades.map((actividad) => [
+                    activo.mantenimiento_activo_id, // Usar el ID generado de `mantenimientos_activos`
+                    actividad.id,
+                    actividad.descripcion,
+                ]);
+                especificacionesPromises.push(
+                    new Promise((resolve, reject) => {
+                        db.query(actividadesQuery, [actividadesValues], (error) => {
+                            if (error) reject(error);
+                            else resolve();
+                        });
+                    })
+                );
+            }
+    
+            // Registrar componentes
+            if (activo.especificaciones?.componentes?.length > 0) {
+                const componentesQuery = `
+                  INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
+                  VALUES ?
+                `;
+                const componentesValues = activo.especificaciones.componentes.map((componente) => [
+                    activo.mantenimiento_activo_id, // Usar el ID generado de `mantenimientos_activos`
+                    componente.id,
+                    componente.cantidad || 1,
+                ]);
+                especificacionesPromises.push(
+                    new Promise((resolve, reject) => {
+                        db.query(componentesQuery, [componentesValues], (error) => {
+                            if (error) reject(error);
+                            else resolve();
+                        });
+                    })
+                );
+            }
+    
+            // Registrar observaciones
+            if (activo.especificaciones?.observaciones) {
+                const observacionesQuery = `
+                  INSERT INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
+                  VALUES (?, ?)
+                `;
+                especificacionesPromises.push(
+                    new Promise((resolve, reject) => {
+                        db.query(
+                            observacionesQuery,
+                            [activo.mantenimiento_activo_id, activo.especificaciones.observaciones],
+                            (error) => {
+                                if (error) reject(error);
+                                else resolve();
+                            }
+                        );
+                    })
+                );
+            }
+        });
+    
         // Ejecutar todas las promesas de especificaciones
         Promise.all(especificacionesPromises)
-          .then(() => {
-            res.status(201).json({
-              message: 'Mantenimiento creado exitosamente con activos y especificaciones',
-              mantenimientoId,
+            .then(() => {
+                res.status(201).json({
+                    message: 'Mantenimiento creado exitosamente con activos y especificaciones.',
+                    mantenimientoId,
+                });
+            })
+            .catch((error) => {
+                console.error('Error al registrar especificaciones:', error);
+                res.status(500).json({ message: 'Error al registrar las especificaciones.' });
             });
-          })
-          .catch((error) => {
-            console.error('Error al registrar especificaciones:', error);
-            res.status(500).json({ message: 'Error al registrar las especificaciones' });
-          });
-      });
+    });
+    
     } else {
-      res.status(201).json({ message: 'Mantenimiento creado exitosamente', mantenimientoId });
+      res.status(201).json({ message: 'Mantenimiento creado exitosamente.', mantenimientoId });
     }
   });
 };
+
 
 
 module.exports = {
