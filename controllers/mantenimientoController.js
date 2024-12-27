@@ -276,7 +276,8 @@ const obtenerMantenimientoPorId = (req, res) => {
       a.estado,
       u.nombre AS ubicacion, -- Obtener el nombre de la ubicación
       t.nombre AS tipo,
-      p.nombre AS proveedor
+      p.nombre AS proveedor,
+      a.proceso_compra
     FROM activos a
     INNER JOIN mantenimientos_activos ma ON a.id = ma.activo_id
     LEFT JOIN ubicaciones u ON a.ubicacion_id = u.id -- JOIN con ubicaciones
