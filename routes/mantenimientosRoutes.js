@@ -8,7 +8,8 @@ const {
   obtenerMantenimientoPorId,
   obtenerActividadesPorTipo,
   obtenerActividadesDelActivo,
-  actualizarMantenimiento,// Crear mantenimiento con activos y especificaciones
+  actualizarMantenimiento,
+  asociarActivoAMantenimiento// Crear mantenimiento con activos y especificaciones
 } = require('../controllers/mantenimientoController');
 
 // Ruta para obtener todos los mantenimientos
@@ -55,5 +56,17 @@ router.put('/:id', (req, res) => {
   console.log(`PUT /api/mantenimientos/${req.params.id} - Actualizando mantenimiento`);
   actualizarMantenimiento(req, res);
 });
+
+
+
+
+// Nueva ruta para asociar un activo existente a un mantenimiento
+// Ruta para asociar un activo existente a un mantenimiento
+router.post('/activos', (req, res) => {
+  console.log('POST /api/mantenimientos/activos - Asociando activo a mantenimiento');
+  asociarActivoAMantenimiento(req, res);
+});
+
+
 
 module.exports = router;

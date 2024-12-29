@@ -1,3 +1,6 @@
+
+
+
 const db = require('../config/db'); // Conexión a la base de datos
 
 // Controlador para obtener todos los mantenimientos
@@ -516,7 +519,36 @@ const actualizarMantenimiento = (req, res) => {
 
 const procesarActivo = (activo, mantenimientoId) => {
   return new Promise((resolve, reject) => {
-    if (!activo.activo_id) {
+    if (activo.activo_id) {
+      // Activo existente, validar y asociarlo
+      const queryValidarActivo = `
+        SELECT id FROM activos WHERE id = ?;
+      `;
+
+      db.query(queryValidarActivo, [activo.activo_id], (error, results) => {
+        if (error) return reject(error);
+
+        if (results.length > 0) {
+          console.log(`Activo existente validado con ID: ${activo.activo_id}`); // Log añadido para debug
+
+          // Asociar el activo existente al mantenimiento
+          asociarActivoMantenimiento(activo.activo_id, mantenimientoId, activo.especificaciones)
+            .then(() => {
+              resolve({
+                ...activo,
+                activo_id: activo.activo_id, // Mantén el ID del activo original
+                mantenimiento_activo_id: mantenimientoId, // Agrega el ID de la relación solo si es necesario
+              });
+            })
+            .catch(reject);
+
+
+        } else {
+          console.warn(`Activo con ID ${activo.activo_id} no existe en la base de datos.`);
+          reject(new Error(`Activo con ID ${activo.activo_id} no existe en la base de datos.`));
+        }
+      });
+    } else if (activo.codigo && activo.nombre) {
       // Activo nuevo, proceder a insertarlo
       const queryCrearActivo = `
         INSERT INTO activos (codigo, nombre, estado, tipo_activo_id, ubicacion_id, proveedor_id)
@@ -535,32 +567,22 @@ const procesarActivo = (activo, mantenimientoId) => {
         if (error) return reject(error);
 
         const nuevoActivoId = results.insertId;
+        console.log(`Activo nuevo creado con ID: ${nuevoActivoId}`); // Log añadido para debug
+
         asociarActivoMantenimiento(nuevoActivoId, mantenimientoId, activo.especificaciones)
-          .then(resolve)
+          .then(() => {
+            resolve({ ...activo, activo_id: nuevoActivoId }); // Devuelve el activo con su nuevo ID
+          })
           .catch(reject);
       });
     } else {
-      // Activo existente, validar y asociarlo
-      const queryValidarActivo = `
-        SELECT id FROM activos WHERE id = ?;
-      `;
-
-      db.query(queryValidarActivo, [activo.activo_id], (error, results) => {
-        if (error) return reject(error);
-
-        if (results.length > 0) {
-          // Activo ya existe, asociar y actualizar especificaciones
-          asociarActivoMantenimiento(activo.activo_id, mantenimientoId, activo.especificaciones)
-            .then(resolve)
-            .catch(reject);
-        } else {
-          // Activo no encontrado en la base de datos
-          reject(new Error(`Activo con ID ${activo.activo_id} no existe en la base de datos.`));
-        }
-      });
+      console.error("Activo sin ID ni información suficiente para crearlo.");
+      reject(new Error("Activo sin ID ni información suficiente para crearlo."));
     }
   });
 };
+
+
 
 
 
@@ -583,7 +605,7 @@ const asociarActivoMantenimiento = (activoId, mantenimientoId, especificaciones)
     db.query(queryComprobarRelacion, [mantenimientoId, activoId], (error, results) => {
       if (error) {
         console.error('Error al comprobar la relación entre mantenimiento y activo:', error);
-        return reject(error);
+        return reject(new Error('Error al comprobar la relación entre mantenimiento y activo.'));
       }
 
       let mantenimientoActivoId;
@@ -593,10 +615,13 @@ const asociarActivoMantenimiento = (activoId, mantenimientoId, especificaciones)
         mantenimientoActivoId = results[0].id;
         console.log(`Relación ya existe. ID: ${mantenimientoActivoId}`);
         actualizarEspecificaciones(mantenimientoActivoId, especificaciones)
-          .then(resolve)
+          .then(() => {
+            console.log(`Especificaciones actualizadas correctamente para la relación existente con ID: ${mantenimientoActivoId}`);
+            resolve();
+          })
           .catch((error) => {
-            console.error('Error al actualizar especificaciones:', error);
-            reject(error);
+            console.error('Error al actualizar especificaciones para la relación existente:', error);
+            reject(new Error('Error al actualizar especificaciones para la relación existente.'));
           });
       } else {
         // Crear nueva relación
@@ -608,23 +633,33 @@ const asociarActivoMantenimiento = (activoId, mantenimientoId, especificaciones)
         db.query(queryAsociarActivo, [mantenimientoId, activoId], (error, results) => {
           if (error) {
             console.error('Error al asociar activo con mantenimiento:', error);
-            return reject(error);
+            return reject(new Error('Error al asociar el activo con el mantenimiento.'));
           }
 
           mantenimientoActivoId = results.insertId;
+
+          if (!mantenimientoActivoId) {
+            console.error('Error: No se pudo obtener el ID de la nueva relación.');
+            return reject(new Error('Error: No se pudo obtener el ID de la nueva relación.'));
+          }
+
           console.log(`Nueva relación creada. ID: ${mantenimientoActivoId}`);
 
           actualizarEspecificaciones(mantenimientoActivoId, especificaciones)
-            .then(resolve)
+            .then(() => {
+              console.log(`Especificaciones actualizadas correctamente para la nueva relación con ID: ${mantenimientoActivoId}`);
+              resolve();
+            })
             .catch((error) => {
               console.error('Error al actualizar especificaciones después de crear la relación:', error);
-              reject(error);
+              reject(new Error('Error al actualizar especificaciones después de crear la relación.'));
             });
         });
       }
     });
   });
 };
+
 
 
 
@@ -679,8 +714,8 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
                 !actividades.some((actividad) => actividad.actividad_id === id) &&
                 actividades.some((actividad) => actividad.mantenimiento_activo_id === mantenimientoActivoId) // Mantener las existentes si pertenecen al mantenimiento actual
             );
-            
-            
+
+
 
             const promisesActividades = [];
 
@@ -796,7 +831,7 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
                 !componentes.some((componente) => componente.componente_id === id) &&
                 componentes.some((componente) => componente.mantenimiento_activo_id === mantenimientoActivoId) // Mantener los existentes si pertenecen al mantenimiento actual
             );
-            
+
 
             const promisesComponentes = [];
 
@@ -926,7 +961,54 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
 };
 
 
+const asociarActivoAMantenimiento = (req, res) => {
+  console.log('Datos recibidos en el backend:', req.body);
+  const { mantenimiento_id, activo_id } = req.body;
 
+  // Validar que los datos requeridos están presentes
+  if (!mantenimiento_id || !activo_id) {
+    console.error('Faltan datos obligatorios:', { mantenimiento_id, activo_id });
+    return res.status(400).json({ message: 'mantenimiento_id y activo_id son obligatorios.' });
+  }
+
+  // Verificar si el activo ya está asociado al mantenimiento
+  const queryVerificar = `
+    SELECT id FROM mantenimientos_activos
+    WHERE mantenimiento_id = ? AND activo_id = ?
+  `;
+
+  db.query(queryVerificar, [mantenimiento_id, activo_id], (error, results) => {
+    if (error) {
+      console.error('Error al verificar la relación activo-mantenimiento:', error);
+      return res.status(500).json({ message: 'Error interno del servidor al verificar la relación.' });
+    }
+
+    if (results.length > 0) {
+      // Si ya está asociado, informar al cliente
+      return res.status(400).json({ message: 'El activo ya está asociado a este mantenimiento.' });
+    }
+
+    // Insertar la relación en la tabla mantenimientos_activos
+    const queryInsertar = `
+      INSERT INTO mantenimientos_activos (mantenimiento_id, activo_id)
+      VALUES (?, ?)
+    `;
+
+    db.query(queryInsertar, [mantenimiento_id, activo_id], (error, results) => {
+      if (error) {
+        console.error('Error al asociar el activo al mantenimiento:', error);
+        return res.status(500).json({ message: 'Error interno del servidor al asociar el activo.' });
+      }
+
+      // Relación creada exitosamente
+      res.status(201).json({
+        message: 'Activo asociado correctamente al mantenimiento.',
+        mantenimiento_activo_id: results.insertId,
+        activo_id,// ID generado
+      });
+    });
+  });
+};
 
 
 
@@ -945,4 +1027,5 @@ module.exports = {
   obtenerActividadesPorTipo,
   obtenerActividadesDelActivo,
   actualizarMantenimiento,
+  asociarActivoAMantenimiento,
 };
