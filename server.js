@@ -9,7 +9,7 @@ const usuariosRoutes = require('./routes/usuariosRoutes'); // Rutas de usuarios
 const proveedoresRoutes = require('./routes/proveedoresRoutes'); // Rutas de proveedores
 const especificacionesRoutes = require('./routes/especificacionesRoutes'); // Rutas de especificaciones
 const { authenticateToken } = require('./middleware/authMiddleware'); // Middleware de autenticación
-
+const { actualizarMantenimientos } = require('./tasks/actualizarMantenimientos');
 const app = express(); // Inicializar Express
 
 // Middleware global para registrar solicitudes
@@ -66,6 +66,8 @@ app.use((err, req, res, next) => {
   console.error(`Error en el servidor: ${err.message}`);
   res.status(500).json({ message: 'Error interno del servidor' });
 });
+
+actualizarMantenimientos();
 
 // Iniciar el servidor
 const PORT = process.env.PORT || 5000;
