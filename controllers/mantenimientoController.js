@@ -844,33 +844,32 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
       promises.push(
         new Promise((resolve, reject) => {
           const queryExistentes = `
-            SELECT componente_id, cantidad FROM mantenimiento_componentes
+            SELECT componente_id, cantidad
+            FROM mantenimiento_componentes
             WHERE mantenimiento_activo_id = ?;
           `;
           db.query(queryExistentes, [mantenimientoActivoId], (error, existentes) => {
             if (error) return reject(error);
-
+    
+            // 1) Mapea sólo componente_id
             const existentesMap = new Map(
-              existentes.map((row) => [row.actividad_id || row.componente_id, row.descripcion || row.cantidad])
+              existentes.map((row) => [row.componente_id, row.cantidad])
             );
-
-
-            // Filtrar componentes nuevos
+    
+            // 2) Filtrar nuevos componentes
             const nuevosComponentes = componentes.filter(
               (componente) => !existentesMap.has(componente.componente_id)
             );
-
-            // Determinar componentes a eliminar
-            const componentesAEliminar = Array.from(existentesMap.keys()).filter(
-              (id) =>
-                !componentes.some((componente) => componente.componente_id === id) &&
-                componentes.some((componente) => componente.mantenimiento_activo_id === mantenimientoActivoId) // Mantener los existentes si pertenecen al mantenimiento actual
-            );
-
-
+    
+            // 3) Si no quieres eliminar ninguno que ya estuviese antes, comenta esta parte
+            const componentesAEliminar = [];
+            // O si deseas “borrar los que no aparezcan en la nueva lista”:
+            // const componentesAEliminar = Array.from(existentesMap.keys()).filter(
+            //   (id) => !componentes.some((c) => c.componente_id === id)
+            // );
+    
             const promisesComponentes = [];
-
-            // Validar si los nuevos componentes existen en la tabla `componentes`
+    
             if (nuevosComponentes.length > 0) {
               const idsAValidar = nuevosComponentes.map((c) => c.componente_id);
               const queryValidarComponentes = `
@@ -878,43 +877,45 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
               `;
               db.query(queryValidarComponentes, [idsAValidar], (error, resultadosValidos) => {
                 if (error) return reject(error);
-
+                
+                // Filtra sólo los existentes en la tabla componentes
                 const idsValidos = resultadosValidos.map((row) => row.id);
                 const componentesValidos = nuevosComponentes.filter((c) =>
                   idsValidos.includes(c.componente_id)
                 );
-
+    
                 if (componentesValidos.length > 0) {
-                  const queryComponentes = `
-                    INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
+                  const queryInsert = `
+                    INSERT INTO mantenimiento_componentes
+                    (mantenimiento_activo_id, componente_id, cantidad)
                     VALUES ?
                   `;
-                  const componentesValues = componentesValidos.map((componente) => [
+                  const componentesValues = componentesValidos.map((comp) => [
                     mantenimientoActivoId,
-                    componente.componente_id,
-                    componente.cantidad || 1,
+                    comp.componente_id,
+                    comp.cantidad || 1,
                   ]);
-
                   promisesComponentes.push(
                     new Promise((resolve, reject) => {
-                      db.query(queryComponentes, [componentesValues], (error) => {
+                      db.query(queryInsert, [componentesValues], (error) => {
                         if (error) return reject(error);
                         resolve();
                       });
                     })
                   );
                 }
-
-                // Eliminar componentes que ya no están en la lista
+    
+                // Eliminar componentes (sólo si realmente querés borrar los que ya no aparezcan)
                 if (componentesAEliminar.length > 0) {
-                  const queryEliminar = `
+                  const queryDelete = `
                     DELETE FROM mantenimiento_componentes
-                    WHERE mantenimiento_activo_id = ? AND componente_id IN (?);
+                    WHERE mantenimiento_activo_id = ?
+                      AND componente_id IN (?);
                   `;
                   promisesComponentes.push(
                     new Promise((resolve, reject) => {
                       db.query(
-                        queryEliminar,
+                        queryDelete,
                         [mantenimientoActivoId, componentesAEliminar],
                         (error) => {
                           if (error) return reject(error);
@@ -924,40 +925,33 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
                     })
                   );
                 }
-
-                Promise.all(promisesComponentes)
-                  .then(resolve)
-                  .catch(reject);
+    
+                Promise.all(promisesComponentes).then(resolve).catch(reject);
               });
             } else {
-              // Eliminar componentes que ya no están en la lista
+              // Caso: No hay nuevos componentes
               if (componentesAEliminar.length > 0) {
-                const queryEliminar = `
+                const queryDelete = `
                   DELETE FROM mantenimiento_componentes
-                  WHERE mantenimiento_activo_id = ? AND componente_id IN (?);
+                  WHERE mantenimiento_activo_id = ?
+                    AND componente_id IN (?);
                 `;
                 promisesComponentes.push(
                   new Promise((resolve, reject) => {
-                    db.query(
-                      queryEliminar,
-                      [mantenimientoActivoId, componentesAEliminar],
-                      (error) => {
-                        if (error) return reject(error);
-                        resolve();
-                      }
-                    );
+                    db.query(queryDelete, [mantenimientoActivoId, componentesAEliminar], (error) => {
+                      if (error) return reject(error);
+                      resolve();
+                    });
                   })
                 );
               }
-
-              Promise.all(promisesComponentes)
-                .then(resolve)
-                .catch(reject);
+              Promise.all(promisesComponentes).then(resolve).catch(reject);
             }
           });
         })
       );
     }
+    
 
 
     // Actualizar observaciones
