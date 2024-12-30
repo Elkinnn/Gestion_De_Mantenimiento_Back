@@ -500,20 +500,55 @@ const actualizarMantenimiento = (req, res) => {
       }
 
       const activosPromises = activos.map((activo) => procesarActivo(activo, mantenimientoId));
-      Promise.all(activosPromises)
-        .then(() =>
-          res.status(200).json({ message: 'Mantenimiento actualizado exitosamente.' })
-        )
-        .catch((error) => {
-          console.error('Error al procesar los activos:', error);
-          res.status(500).json({ error: 'Error al procesar los activos del mantenimiento' });
+
+      // Si el mantenimiento se marca como "Terminado", actualizar activos a "Funcionando"
+      if (estado === 'Terminado') {
+        const queryActualizarActivos = `
+          UPDATE activos a
+          JOIN mantenimientos_activos ma ON a.id = ma.activo_id
+          SET a.estado = 'Funcionando'
+          WHERE ma.mantenimiento_id = ?
+            AND a.estado = 'No Funcionando';
+        `;
+
+        const actualizarActivos = new Promise((resolve, reject) => {
+          db.query(queryActualizarActivos, [mantenimientoId], (err, results) => {
+            if (err) {
+              console.error('Error al actualizar estado de activos a Funcionando:', err);
+              return reject(err);
+            }
+            console.log(`Activos actualizados a "Funcionando" para mantenimientoId=${mantenimientoId}`);
+            resolve();
+          });
         });
+
+        // Combina ambas promesas: procesamiento de activos + actualización de activos
+        Promise.all([Promise.all(activosPromises), actualizarActivos])
+          .then(() =>
+            res.status(200).json({ message: 'Mantenimiento actualizado exitosamente.' })
+          )
+          .catch((error) => {
+            console.error('Error al procesar los activos:', error);
+            res.status(500).json({ error: 'Error al procesar los activos del mantenimiento' });
+          });
+      } else {
+        // Si no está terminado, solo procesa los activos
+        Promise.all(activosPromises)
+          .then(() =>
+            res.status(200).json({ message: 'Mantenimiento actualizado exitosamente.' })
+          )
+          .catch((error) => {
+            console.error('Error al procesar los activos:', error);
+            res.status(500).json({ error: 'Error al procesar los activos del mantenimiento' });
+          });
+      }
     });
   } catch (error) {
     console.error('Error en la validación de activos:', error.message);
     res.status(400).json({ error: error.message });
   }
 };
+
 
 
 
