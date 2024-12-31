@@ -435,11 +435,18 @@ const obtenerActividadesDelActivo = (req, res) => {
         });
       }),
       new Promise((resolve, reject) => {
-        db.query(queryObservacion, [mantenimiento_activo_id], (error, resultadosObservacion) => {
+        const query = `
+          SELECT observacion
+          FROM mantenimiento_observaciones
+          WHERE mantenimiento_activo_id = ?
+          ORDER BY id DESC LIMIT 1;
+        `;
+        db.query(query, [mantenimiento_activo_id], (error, resultadosObservacion) => {
           if (error) reject(error);
           else resolve(resultadosObservacion[0]?.observacion || '');
         });
       }),
+      
     ])
       .then(([actividadesRealizadas, actividadesDisponibles, componentesUtilizados, componentesDisponibles, observacion]) => {
         res.status(200).json({
@@ -891,8 +898,9 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
       promises.push(
         new Promise((resolve, reject) => {
           const queryInsertarObservacion = `
-            REPLACE INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
-            VALUES (?, ?);
+            INSERT INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
+            VALUES (?, ?)
+            ON DUPLICATE KEY UPDATE observacion = VALUES(observacion);
           `;
           db.query(queryInsertarObservacion, [mantenimientoActivoId, observaciones], (error) => {
             if (error) return reject(error);
@@ -901,6 +909,7 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
         })
       );
     }
+    
 
     // Ejecutar todas las promesas
     Promise.all(promises)
