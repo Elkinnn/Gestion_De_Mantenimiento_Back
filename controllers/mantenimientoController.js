@@ -923,7 +923,7 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
 
 const asociarActivoAMantenimiento = (req, res) => {
   console.log('Datos recibidos en el backend:', req.body);
-  const { mantenimiento_id, activo_id } = req.body;
+  const { mantenimiento_id, activo_id, especificaciones } = req.body; // Asegúrate de incluir `especificaciones`
 
   // Validar que los datos requeridos están presentes
   if (!mantenimiento_id || !activo_id) {
@@ -944,13 +944,22 @@ const asociarActivoAMantenimiento = (req, res) => {
     }
 
     if (results.length > 0) {
-      // Si ya está asociado, devolver 200 en lugar de 400
-      console.log('Activo ya asociado:', results[0]);
-      return res.status(200).json({
-        message: 'El activo ya está asociado a este mantenimiento.',
-        mantenimiento_activo_id: results[0].id, // ID existente
-        activo_id,
-      });
+      const mantenimientoActivoId = results[0].id;
+      console.log('Activo ya asociado, actualizando especificaciones:', mantenimientoActivoId);
+
+      // Actualizar especificaciones existentes
+      actualizarEspecificaciones(mantenimientoActivoId, especificaciones || {})
+        .then(() => {
+          res.status(200).json({
+            message: 'El activo ya está asociado y especificaciones actualizadas.',
+            mantenimiento_activo_id: mantenimientoActivoId,
+          });
+        })
+        .catch((error) => {
+          console.error('Error al actualizar especificaciones:', error);
+          res.status(500).json({ message: 'Error interno al actualizar especificaciones.' });
+        });
+      return;
     }
 
     // Insertar la relación en la tabla mantenimientos_activos
@@ -965,15 +974,25 @@ const asociarActivoAMantenimiento = (req, res) => {
         return res.status(500).json({ message: 'Error interno del servidor al asociar el activo.' });
       }
 
-      // Relación creada exitosamente
-      res.status(201).json({
-        message: 'Activo asociado correctamente al mantenimiento.',
-        mantenimiento_activo_id: results.insertId,
-        activo_id,// ID generado
-      });
+      const mantenimientoActivoId = results.insertId;
+      console.log(`Nueva relación creada con ID: ${mantenimientoActivoId}`);
+
+      // Guardar especificaciones iniciales para la nueva relación
+      actualizarEspecificaciones(mantenimientoActivoId, especificaciones || {})
+        .then(() => {
+          res.status(201).json({
+            message: 'Activo asociado correctamente al mantenimiento y especificaciones iniciales guardadas.',
+            mantenimiento_activo_id: mantenimientoActivoId,
+          });
+        })
+        .catch((error) => {
+          console.error('Error al actualizar especificaciones:', error);
+          res.status(500).json({ message: 'Error interno al guardar especificaciones iniciales.' });
+        });
     });
   });
 };
+
 
 
 
