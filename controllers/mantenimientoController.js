@@ -370,20 +370,20 @@ const obtenerActividadesDelActivo = (req, res) => {
 
     if (results.length === 0) {
       console.warn('No existe una relación entre el mantenimiento y el activo. Creándola...');
-    
+
       const queryAsociarActivo = `
         INSERT INTO mantenimientos_activos (mantenimiento_id, activo_id)
         VALUES (?, ?)
       `;
-    
+
       db.query(queryAsociarActivo, [mantenimiento_id, activo_id], (error, result) => {
         if (error) {
           console.error('Error al crear la relación entre mantenimiento y activo:', error);
           return res.status(500).json({ error: 'Error al asociar el activo al mantenimiento.' });
         }
-    
+
         const mantenimiento_activo_id = result.insertId;
-    
+
         res.status(200).json({
           mantenimiento_activo_id,
           actividades_realizadas: [],
@@ -393,10 +393,10 @@ const obtenerActividadesDelActivo = (req, res) => {
           observacion: '',
         });
       });
-    
+
       return;
     }
-    
+
 
     const { mantenimiento_activo_id, tipo_activo_id } = results[0];
 
@@ -472,7 +472,7 @@ const obtenerActividadesDelActivo = (req, res) => {
           else resolve(resultadosObservacion[0]?.observacion || '');
         });
       }),
-      
+
     ])
       .then(([actividadesRealizadas, actividadesDisponibles, componentesUtilizados, componentesDisponibles, observacion]) => {
         res.status(200).json({
@@ -865,21 +865,66 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
     }
 
     // Actualizar observaciones
-    if (observaciones !== undefined) {
+    if (observaciones !== undefined && observaciones.trim() !== '') {
       promises.push(
         new Promise((resolve, reject) => {
-          const queryInsertarObservacion = `
-            INSERT INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE observacion = VALUES(observacion);
+          // Verificar si ya existe una observación para este mantenimiento_activo_id
+          const queryVerificarObservacion = `
+            SELECT observacion FROM mantenimiento_observaciones
+            WHERE mantenimiento_activo_id = ?;
           `;
-          db.query(queryInsertarObservacion, [mantenimientoActivoId, observaciones], (error) => {
-            if (error) return reject(error);
-            resolve();
+    
+          db.query(queryVerificarObservacion, [mantenimientoActivoId], (error, results) => {
+            if (error) {
+              console.error("Error al verificar observación existente:", error);
+              return reject(error);
+            }
+    
+            const observacionExistente = results.length > 0 ? results[0].observacion : null;
+    
+            if (observacionExistente !== null) {
+              // Si existe una observación, actualiza solo si cambia el valor
+              if (observaciones.trim() === observacionExistente.trim()) {
+                console.log("La observación no ha cambiado, no se actualiza.");
+                return resolve();
+              }
+    
+              const queryActualizarObservacion = `
+                UPDATE mantenimiento_observaciones
+                SET observacion = ?
+                WHERE mantenimiento_activo_id = ?;
+              `;
+              db.query(queryActualizarObservacion, [observaciones, mantenimientoActivoId], (error) => {
+                if (error) {
+                  console.error("Error al actualizar la observación:", error);
+                  return reject(error);
+                }
+                console.log("Observación actualizada correctamente.");
+                resolve();
+              });
+            } else {
+              // Si no existe, inserta una nueva observación
+              const queryInsertarObservacion = `
+                INSERT INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
+                VALUES (?, ?);
+              `;
+              db.query(queryInsertarObservacion, [mantenimientoActivoId, observaciones], (error) => {
+                if (error) {
+                  console.error("Error al insertar nueva observación:", error);
+                  return reject(error);
+                }
+                console.log("Nueva observación insertada correctamente.");
+                resolve();
+              });
+            }
           });
         })
       );
+    } else {
+      console.log("No se proporcionaron observaciones válidas. No se realizan cambios.");
     }
+    
+
 
     // Ejecutar todas las promesas
     Promise.all(promises)
