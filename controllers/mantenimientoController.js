@@ -554,37 +554,46 @@ const actualizarMantenimiento = (req, res) => {
 
 const procesarActivo = (activo, mantenimientoId) => {
   return new Promise((resolve, reject) => {
+    if (!activo || (!activo.activo_id && (!activo.codigo || !activo.nombre))) {
+      console.error("Activo no tiene suficiente información para ser procesado.");
+      return reject(new Error("Activo no tiene suficiente información para ser procesado."));
+    }
+
     if (activo.activo_id) {
-      // Activo existente, validar y asociarlo
+      // Validar si el activo existente pertenece al mantenimiento
       const queryValidarActivo = `
-        SELECT id FROM activos WHERE id = ?;
+        SELECT id FROM mantenimientos_activos
+        WHERE mantenimiento_id = ? AND activo_id = ?;
       `;
 
-      db.query(queryValidarActivo, [activo.activo_id], (error, results) => {
-        if (error) return reject(error);
-
-        if (results.length > 0) {
-          console.log(`Activo existente validado con ID: ${activo.activo_id}`); // Log añadido para debug
-
-          // Asociar el activo existente al mantenimiento
-          asociarActivoMantenimiento(activo.activo_id, mantenimientoId, activo.especificaciones)
-            .then(() => {
-              resolve({
-                ...activo,
-                activo_id: activo.activo_id, // Mantén el ID del activo original
-                mantenimiento_activo_id: mantenimientoId, // Agrega el ID de la relación solo si es necesario
-              });
-            })
-            .catch(reject);
-
-
-        } else {
-          console.warn(`Activo con ID ${activo.activo_id} no existe en la base de datos.`);
-          reject(new Error(`Activo con ID ${activo.activo_id} no existe en la base de datos.`));
+      db.query(queryValidarActivo, [mantenimientoId, activo.activo_id], (error, results) => {
+        if (error) {
+          console.error("Error al validar el activo existente:", error);
+          return reject(new Error("Error al validar el activo existente."));
         }
+
+        if (results.length === 0) {
+          console.warn(`El activo con ID ${activo.activo_id} no pertenece a este mantenimiento.`);
+          return reject(new Error(`El activo con ID ${activo.activo_id} no pertenece a este mantenimiento.`));
+        }
+
+        // Actualizar las especificaciones del activo en el mantenimiento
+        const mantenimientoActivoId = results[0].id;
+        actualizarEspecificaciones(mantenimientoActivoId, activo.especificaciones)
+          .then(() => {
+            console.log(`Especificaciones actualizadas para activo existente con ID: ${activo.activo_id}`);
+            resolve({
+              ...activo,
+              mantenimiento_activo_id: mantenimientoActivoId,
+            });
+          })
+          .catch((err) => {
+            console.error("Error al actualizar las especificaciones del activo existente:", err);
+            reject(err);
+          });
       });
-    } else if (activo.codigo && activo.nombre) {
-      // Activo nuevo, proceder a insertarlo
+    } else {
+      // Insertar un nuevo activo y asociarlo al mantenimiento
       const queryCrearActivo = `
         INSERT INTO activos (codigo, nombre, estado, tipo_activo_id, ubicacion_id, proveedor_id)
         VALUES (?, ?, ?, ?, ?, ?);
@@ -592,30 +601,56 @@ const procesarActivo = (activo, mantenimientoId) => {
       const activoValues = [
         activo.codigo,
         activo.nombre,
-        activo.estado || 'Pendiente',
+        activo.estado || "Pendiente",
         activo.tipo_activo_id || null,
         activo.ubicacion_id || null,
         activo.proveedor_id || null,
       ];
 
       db.query(queryCrearActivo, activoValues, (error, results) => {
-        if (error) return reject(error);
+        if (error) {
+          console.error("Error al crear un nuevo activo:", error);
+          return reject(new Error("Error al crear un nuevo activo."));
+        }
 
         const nuevoActivoId = results.insertId;
-        console.log(`Activo nuevo creado con ID: ${nuevoActivoId}`); // Log añadido para debug
+        console.log(`Activo nuevo creado con ID: ${nuevoActivoId}`);
 
-        asociarActivoMantenimiento(nuevoActivoId, mantenimientoId, activo.especificaciones)
-          .then(() => {
-            resolve({ ...activo, activo_id: nuevoActivoId }); // Devuelve el activo con su nuevo ID
-          })
-          .catch(reject);
+        // Asociar el nuevo activo al mantenimiento
+        const queryAsociarActivo = `
+          INSERT INTO mantenimientos_activos (mantenimiento_id, activo_id)
+          VALUES (?, ?);
+        `;
+
+        db.query(queryAsociarActivo, [mantenimientoId, nuevoActivoId], (error, results) => {
+          if (error) {
+            console.error("Error al asociar el activo al mantenimiento:", error);
+            return reject(new Error("Error al asociar el activo al mantenimiento."));
+          }
+
+          const mantenimientoActivoId = results.insertId;
+          console.log(`Asociación creada con ID: ${mantenimientoActivoId}`);
+
+          // Actualizar las especificaciones del nuevo activo
+          actualizarEspecificaciones(mantenimientoActivoId, activo.especificaciones)
+            .then(() => {
+              console.log(`Especificaciones actualizadas para nuevo activo con ID: ${nuevoActivoId}`);
+              resolve({
+                ...activo,
+                activo_id: nuevoActivoId,
+                mantenimiento_activo_id: mantenimientoActivoId,
+              });
+            })
+            .catch((err) => {
+              console.error("Error al actualizar las especificaciones del nuevo activo:", err);
+              reject(err);
+            });
+        });
       });
-    } else {
-      console.error("Activo sin ID ni información suficiente para crearlo.");
-      reject(new Error("Activo sin ID ni información suficiente para crearlo."));
     }
   });
 };
+
 
 
 
@@ -719,55 +754,47 @@ const obtenerMantenimientoActivoId = (mantenimientoId, activoId) => {
 const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => {
   return new Promise((resolve, reject) => {
     const { actividades, componentes, observaciones } = especificaciones;
-
     const promises = [];
 
-    // Actualizar actividades
     // Actualizar actividades
     if (actividades) {
       promises.push(
         new Promise((resolve, reject) => {
           const queryExistentes = `
-        SELECT actividad_id, descripcion FROM mantenimiento_actividades
-        WHERE mantenimiento_activo_id = ?;
-      `;
+            SELECT actividad_id FROM mantenimiento_actividades
+            WHERE mantenimiento_activo_id = ?;
+          `;
           db.query(queryExistentes, [mantenimientoActivoId], (error, existentes) => {
             if (error) return reject(error);
 
-            const existentesMap = new Map(
-              existentes.map((row) => [row.actividad_id, row.descripcion])
-            );
+            const existentesSet = new Set(existentes.map((row) => row.actividad_id));
 
-            // Filtrar actividades nuevas
+            // Nuevas actividades a insertar
             const nuevasActividades = actividades.filter(
-              (actividad) => !existentesMap.has(actividad.actividad_id)
+              (actividad) => !existentesSet.has(actividad.actividad_id)
             );
-
-            // Determinar actividades a eliminar
-            const actividadesAEliminar = Array.from(existentesMap.keys()).filter(
-              (id) =>
-                !actividades.some((actividad) => actividad.actividad_id === id) &&
-                actividades.some((actividad) => actividad.mantenimiento_activo_id === mantenimientoActivoId) // Mantener las existentes si pertenecen al mantenimiento actual
-            );
-
-
 
             const promisesActividades = [];
 
-            // Validar si los nuevos actividades existen en la tabla `actividades`
+            // Validar e insertar nuevas actividades
             if (nuevasActividades.length > 0) {
               const idsAValidar = nuevasActividades.map((a) => a.actividad_id);
-              const queryValidarActividades = `SELECT id FROM actividades WHERE id IN (?);`;
-              db.query(queryValidarActividades, [idsAValidar], (error, resultadosValidos) => {
-                // Validar IDs válidos y filtrar actividades
-                const idsValidos = resultadosValidos.map((row) => row.id);
-                const actividadesValidas = nuevasActividades.filter((a) => idsValidos.includes(a.actividad_id));
-                // Inserta actividades válidas...
-                if (actividadesValidas.length > 0) {
-                  const queryActividades = `
-                INSERT INTO mantenimiento_actividades (mantenimiento_activo_id, actividad_id, descripcion)
-                VALUES ?;
+              const queryValidarActividades = `
+                SELECT id FROM actividades WHERE id IN (?);
               `;
+              db.query(queryValidarActividades, [idsAValidar], (error, resultadosValidos) => {
+                if (error) return reject(error);
+
+                const idsValidos = resultadosValidos.map((row) => row.id);
+                const actividadesValidas = nuevasActividades.filter((a) =>
+                  idsValidos.includes(a.actividad_id)
+                );
+
+                if (actividadesValidas.length > 0) {
+                  const queryInsert = `
+                    INSERT INTO mantenimiento_actividades (mantenimiento_activo_id, actividad_id, descripcion)
+                    VALUES ?;
+                  `;
                   const actividadesValues = actividadesValidas.map((actividad) => [
                     mantenimientoActivoId,
                     actividad.actividad_id,
@@ -776,7 +803,7 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
 
                   promisesActividades.push(
                     new Promise((resolve, reject) => {
-                      db.query(queryActividades, [actividadesValues], (error) => {
+                      db.query(queryInsert, [actividadesValues], (error) => {
                         if (error) return reject(error);
                         resolve();
                       });
@@ -784,92 +811,37 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
                   );
                 }
 
-                // Eliminar actividades que ya no están en la lista
-                if (actividadesAEliminar.length > 0) {
-                  const queryEliminar = `
-                DELETE FROM mantenimiento_actividades
-                WHERE mantenimiento_activo_id = ? AND actividad_id IN (?);
-              `;
-                  promisesActividades.push(
-                    new Promise((resolve, reject) => {
-                      db.query(
-                        queryEliminar,
-                        [mantenimientoActivoId, actividadesAEliminar],
-                        (error) => {
-                          if (error) return reject(error);
-                          resolve();
-                        }
-                      );
-                    })
-                  );
-                }
-
-                Promise.all(promisesActividades)
-                  .then(resolve)
-                  .catch(reject);
+                Promise.all(promisesActividades).then(resolve).catch(reject);
               });
             } else {
-              // Eliminar actividades que ya no están en la lista
-              if (actividadesAEliminar.length > 0) {
-                const queryEliminar = `
-              DELETE FROM mantenimiento_actividades
-              WHERE mantenimiento_activo_id = ? AND actividad_id IN (?);
-            `;
-                promisesActividades.push(
-                  new Promise((resolve, reject) => {
-                    db.query(
-                      queryEliminar,
-                      [mantenimientoActivoId, actividadesAEliminar],
-                      (error) => {
-                        if (error) return reject(error);
-                        resolve();
-                      }
-                    );
-                  })
-                );
-              }
-
-              Promise.all(promisesActividades)
-                .then(resolve)
-                .catch(reject);
+              resolve(); // No hay nuevas actividades que insertar
             }
           });
         })
       );
     }
 
-
     // Actualizar componentes
     if (componentes) {
       promises.push(
         new Promise((resolve, reject) => {
           const queryExistentes = `
-            SELECT componente_id, cantidad
-            FROM mantenimiento_componentes
+            SELECT componente_id FROM mantenimiento_componentes
             WHERE mantenimiento_activo_id = ?;
           `;
           db.query(queryExistentes, [mantenimientoActivoId], (error, existentes) => {
             if (error) return reject(error);
-    
-            // 1) Mapea sólo componente_id
-            const existentesMap = new Map(
-              existentes.map((row) => [row.componente_id, row.cantidad])
-            );
-    
-            // 2) Filtrar nuevos componentes
+
+            const existentesSet = new Set(existentes.map((row) => row.componente_id));
+
+            // Nuevos componentes a insertar
             const nuevosComponentes = componentes.filter(
-              (componente) => !existentesMap.has(componente.componente_id)
+              (componente) => !existentesSet.has(componente.componente_id)
             );
-    
-            // 3) Si no quieres eliminar ninguno que ya estuviese antes, comenta esta parte
-            const componentesAEliminar = [];
-            // O si deseas “borrar los que no aparezcan en la nueva lista”:
-            // const componentesAEliminar = Array.from(existentesMap.keys()).filter(
-            //   (id) => !componentes.some((c) => c.componente_id === id)
-            // );
-    
+
             const promisesComponentes = [];
-    
+
+            // Validar e insertar nuevos componentes
             if (nuevosComponentes.length > 0) {
               const idsAValidar = nuevosComponentes.map((c) => c.componente_id);
               const queryValidarComponentes = `
@@ -877,24 +849,23 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
               `;
               db.query(queryValidarComponentes, [idsAValidar], (error, resultadosValidos) => {
                 if (error) return reject(error);
-                
-                // Filtra sólo los existentes en la tabla componentes
+
                 const idsValidos = resultadosValidos.map((row) => row.id);
                 const componentesValidos = nuevosComponentes.filter((c) =>
                   idsValidos.includes(c.componente_id)
                 );
-    
+
                 if (componentesValidos.length > 0) {
                   const queryInsert = `
-                    INSERT INTO mantenimiento_componentes
-                    (mantenimiento_activo_id, componente_id, cantidad)
-                    VALUES ?
+                    INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
+                    VALUES ?;
                   `;
-                  const componentesValues = componentesValidos.map((comp) => [
+                  const componentesValues = componentesValidos.map((componente) => [
                     mantenimientoActivoId,
-                    comp.componente_id,
-                    comp.cantidad || 1,
+                    componente.componente_id,
+                    componente.cantidad || 1,
                   ]);
+
                   promisesComponentes.push(
                     new Promise((resolve, reject) => {
                       db.query(queryInsert, [componentesValues], (error) => {
@@ -904,79 +875,28 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
                     })
                   );
                 }
-    
-                // Eliminar componentes (sólo si realmente querés borrar los que ya no aparezcan)
-                if (componentesAEliminar.length > 0) {
-                  const queryDelete = `
-                    DELETE FROM mantenimiento_componentes
-                    WHERE mantenimiento_activo_id = ?
-                      AND componente_id IN (?);
-                  `;
-                  promisesComponentes.push(
-                    new Promise((resolve, reject) => {
-                      db.query(
-                        queryDelete,
-                        [mantenimientoActivoId, componentesAEliminar],
-                        (error) => {
-                          if (error) return reject(error);
-                          resolve();
-                        }
-                      );
-                    })
-                  );
-                }
-    
+
                 Promise.all(promisesComponentes).then(resolve).catch(reject);
               });
             } else {
-              // Caso: No hay nuevos componentes
-              if (componentesAEliminar.length > 0) {
-                const queryDelete = `
-                  DELETE FROM mantenimiento_componentes
-                  WHERE mantenimiento_activo_id = ?
-                    AND componente_id IN (?);
-                `;
-                promisesComponentes.push(
-                  new Promise((resolve, reject) => {
-                    db.query(queryDelete, [mantenimientoActivoId, componentesAEliminar], (error) => {
-                      if (error) return reject(error);
-                      resolve();
-                    });
-                  })
-                );
-              }
-              Promise.all(promisesComponentes).then(resolve).catch(reject);
+              resolve(); // No hay nuevos componentes que insertar
             }
           });
         })
       );
     }
-    
-
 
     // Actualizar observaciones
-    if (observaciones) {
+    if (observaciones !== undefined) {
       promises.push(
         new Promise((resolve, reject) => {
-          const queryEliminarExistente = `
-            DELETE FROM mantenimiento_observaciones
-            WHERE mantenimiento_activo_id = ?
+          const queryInsertarObservacion = `
+            REPLACE INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
+            VALUES (?, ?);
           `;
-          db.query(queryEliminarExistente, [mantenimientoActivoId], (error) => {
+          db.query(queryInsertarObservacion, [mantenimientoActivoId, observaciones], (error) => {
             if (error) return reject(error);
-
-            const queryInsertarObservacion = `
-              INSERT INTO mantenimiento_observaciones (mantenimiento_activo_id, observacion)
-              VALUES (?, ?)
-            `;
-            db.query(
-              queryInsertarObservacion,
-              [mantenimientoActivoId, observaciones],
-              (error) => {
-                if (error) return reject(error);
-                resolve();
-              }
-            );
+            resolve();
           });
         })
       );
@@ -984,10 +904,16 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
 
     // Ejecutar todas las promesas
     Promise.all(promises)
-      .then(resolve)
-      .catch(reject);
+      .then(() => resolve())
+      .catch((error) => {
+        console.error("Error al actualizar especificaciones:", error);
+        reject(error);
+      });
   });
 };
+
+
+
 
 
 const asociarActivoAMantenimiento = (req, res) => {
