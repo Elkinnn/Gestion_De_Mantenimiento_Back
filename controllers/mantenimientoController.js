@@ -661,6 +661,7 @@ const procesarActivo = (activo, mantenimientoId) => {
 
 
 
+
 const asociarActivoMantenimiento = (activoId, mantenimientoId, especificaciones) => {
   return new Promise((resolve, reject) => {
     // Validar que activoId no sea null o undefined
@@ -759,7 +760,7 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
     const { actividades, componentes, observaciones } = especificaciones;
     const promises = [];
 
-    // Actualizar actividades
+    // Validar e insertar actividades
     if (actividades) {
       promises.push(
         new Promise((resolve, reject) => {
@@ -771,60 +772,60 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
             if (error) return reject(error);
 
             const existentesSet = new Set(existentes.map((row) => row.actividad_id));
-
-            // Nuevas actividades a insertar
             const nuevasActividades = actividades.filter(
               (actividad) => !existentesSet.has(actividad.actividad_id)
             );
 
-            const promisesActividades = [];
-
-            // Validar e insertar nuevas actividades
             if (nuevasActividades.length > 0) {
-              const idsAValidar = nuevasActividades.map((a) => a.actividad_id);
               const queryValidarActividades = `
-                SELECT id FROM actividades WHERE id IN (?);
-              `;
-              db.query(queryValidarActividades, [idsAValidar], (error, resultadosValidos) => {
-                if (error) return reject(error);
-
-                const idsValidos = resultadosValidos.map((row) => row.id);
-                const actividadesValidas = nuevasActividades.filter((a) =>
-                  idsValidos.includes(a.actividad_id)
+                SELECT id FROM actividades
+                WHERE id IN (?) AND tipo_activo_id = (
+                  SELECT tipo_activo_id
+                  FROM mantenimientos_activos ma
+                  JOIN activos a ON ma.activo_id = a.id
+                  WHERE ma.id = ?
                 );
+              `;
+              db.query(
+                queryValidarActividades,
+                [nuevasActividades.map((a) => a.actividad_id), mantenimientoActivoId],
+                (error, resultadosValidos) => {
+                  if (error) return reject(error);
 
-                if (actividadesValidas.length > 0) {
-                  const queryInsert = `
-                    INSERT INTO mantenimiento_actividades (mantenimiento_activo_id, actividad_id, descripcion)
-                    VALUES ?;
-                  `;
-                  const actividadesValues = actividadesValidas.map((actividad) => [
-                    mantenimientoActivoId,
-                    actividad.actividad_id,
-                    actividad.descripcion || "",
-                  ]);
-
-                  promisesActividades.push(
-                    new Promise((resolve, reject) => {
-                      db.query(queryInsert, [actividadesValues], (error) => {
-                        if (error) return reject(error);
-                        resolve();
-                      });
-                    })
+                  const idsValidos = resultadosValidos.map((row) => row.id);
+                  const actividadesValidas = nuevasActividades.filter((a) =>
+                    idsValidos.includes(a.actividad_id)
                   );
-                }
 
-                Promise.all(promisesActividades).then(resolve).catch(reject);
-              });
+                  if (actividadesValidas.length > 0) {
+                    const queryInsert = `
+                      INSERT INTO mantenimiento_actividades (mantenimiento_activo_id, actividad_id, descripcion)
+                      VALUES ?;
+                    `;
+                    const actividadesValues = actividadesValidas.map((actividad) => [
+                      mantenimientoActivoId,
+                      actividad.actividad_id,
+                      actividad.descripcion || "",
+                    ]);
+
+                    db.query(queryInsert, [actividadesValues], (error) => {
+                      if (error) return reject(error);
+                      resolve();
+                    });
+                  } else {
+                    resolve(); // No hay actividades válidas para insertar
+                  }
+                }
+              );
             } else {
-              resolve(); // No hay nuevas actividades que insertar
+              resolve(); // No hay nuevas actividades
             }
           });
         })
       );
     }
 
-    // Actualizar componentes
+    // Validar e insertar componentes
     if (componentes) {
       promises.push(
         new Promise((resolve, reject) => {
@@ -836,53 +837,27 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
             if (error) return reject(error);
 
             const existentesSet = new Set(existentes.map((row) => row.componente_id));
-
-            // Nuevos componentes a insertar
             const nuevosComponentes = componentes.filter(
               (componente) => !existentesSet.has(componente.componente_id)
             );
 
-            const promisesComponentes = [];
-
-            // Validar e insertar nuevos componentes
             if (nuevosComponentes.length > 0) {
-              const idsAValidar = nuevosComponentes.map((c) => c.componente_id);
-              const queryValidarComponentes = `
-                SELECT id FROM componentes WHERE id IN (?);
+              const queryInsert = `
+                INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
+                VALUES ?;
               `;
-              db.query(queryValidarComponentes, [idsAValidar], (error, resultadosValidos) => {
+              const componentesValues = nuevosComponentes.map((componente) => [
+                mantenimientoActivoId,
+                componente.componente_id,
+                componente.cantidad || 1,
+              ]);
+
+              db.query(queryInsert, [componentesValues], (error) => {
                 if (error) return reject(error);
-
-                const idsValidos = resultadosValidos.map((row) => row.id);
-                const componentesValidos = nuevosComponentes.filter((c) =>
-                  idsValidos.includes(c.componente_id)
-                );
-
-                if (componentesValidos.length > 0) {
-                  const queryInsert = `
-                    INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
-                    VALUES ?;
-                  `;
-                  const componentesValues = componentesValidos.map((componente) => [
-                    mantenimientoActivoId,
-                    componente.componente_id,
-                    componente.cantidad || 1,
-                  ]);
-
-                  promisesComponentes.push(
-                    new Promise((resolve, reject) => {
-                      db.query(queryInsert, [componentesValues], (error) => {
-                        if (error) return reject(error);
-                        resolve();
-                      });
-                    })
-                  );
-                }
-
-                Promise.all(promisesComponentes).then(resolve).catch(reject);
+                resolve();
               });
             } else {
-              resolve(); // No hay nuevos componentes que insertar
+              resolve(); // No hay nuevos componentes
             }
           });
         })
@@ -905,7 +880,6 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
         })
       );
     }
-    
 
     // Ejecutar todas las promesas
     Promise.all(promises)
@@ -916,6 +890,8 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
       });
   });
 };
+
+
 
 
 
