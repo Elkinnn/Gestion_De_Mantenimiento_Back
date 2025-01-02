@@ -9,7 +9,8 @@ const {
   obtenerActividadesPorTipo,
   obtenerActividadesDelActivo,
   actualizarMantenimiento,
-  asociarActivoAMantenimiento// Crear mantenimiento con activos y especificaciones
+  asociarActivoAMantenimiento,
+  verificarActivoEnMantenimiento,// Crear mantenimiento con activos y especificaciones
 } = require('../controllers/mantenimientoController');
 
 // Ruta para obtener todos los mantenimientos
@@ -67,6 +68,9 @@ router.post('/activos', (req, res) => {
   asociarActivoAMantenimiento(req, res);
 });
 
-
+router.get('/activos/:activo_id/verificar', (req, res) => {
+  console.log(`GET /api/mantenimientos/activos/${req.params.activo_id}/verificar - Verificando activo`);
+  verificarActivoEnMantenimiento(req, res);
+});
 
 module.exports = router;

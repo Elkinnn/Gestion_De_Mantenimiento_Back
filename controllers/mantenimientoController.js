@@ -1063,6 +1063,41 @@ const asociarActivoAMantenimiento = (req, res) => {
 
 
 
+const verificarActivoEnMantenimiento = (req, res) => {
+  const { activo_id } = req.params;
+
+  if (!activo_id) {
+    return res.status(400).json({ message: 'El ID del activo es obligatorio.' });
+  }
+
+  const query = `
+    SELECT 
+      m.numero_mantenimiento,
+      m.estado 
+    FROM mantenimientos_activos ma
+    INNER JOIN mantenimientos m ON ma.mantenimiento_id = m.id
+    WHERE ma.activo_id = ? AND m.estado = 'Activo';
+  `;
+
+  db.query(query, [activo_id], (error, results) => {
+    if (error) {
+      console.error('Error al verificar el estado del activo:', error);
+      return res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+
+    if (results.length > 0) {
+      return res.status(200).json({
+        enMantenimiento: true,
+        mensaje: `El activo está asociado al mantenimiento ${results[0].numero_mantenimiento} y está en estado ${results[0].estado}.`,
+      });
+    }
+
+    return res.status(200).json({
+      enMantenimiento: false,
+      mensaje: 'El activo no está asociado a ningún mantenimiento activo.',
+    });
+  });
+};
 
 
 
@@ -1079,4 +1114,5 @@ module.exports = {
   obtenerActividadesDelActivo,
   actualizarMantenimiento,
   asociarActivoAMantenimiento,
+  verificarActivoEnMantenimiento,
 };
