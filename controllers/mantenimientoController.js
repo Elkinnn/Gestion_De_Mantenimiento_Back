@@ -826,43 +826,89 @@ const actualizarEspecificaciones = (mantenimientoActivoId, especificaciones) => 
     }
 
     // Validar e insertar componentes
-    if (componentes) {
+    if (componentes && componentes.length > 0) {
       promises.push(
-        new Promise((resolve, reject) => {
-          const queryExistentes = `
-            SELECT componente_id FROM mantenimiento_componentes
-            WHERE mantenimiento_activo_id = ?;
-          `;
-          db.query(queryExistentes, [mantenimientoActivoId], (error, existentes) => {
-            if (error) return reject(error);
-
-            const existentesSet = new Set(existentes.map((row) => row.componente_id));
-            const nuevosComponentes = componentes.filter(
-              (componente) => !existentesSet.has(componente.componente_id)
-            );
-
-            if (nuevosComponentes.length > 0) {
-              const queryInsert = `
-                INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
-                VALUES ?;
+          new Promise((resolve, reject) => {
+              // Consulta para obtener componentes ya existentes y válidos
+              const queryExistentes = `
+                  SELECT mc.componente_id
+                  FROM mantenimiento_componentes mc
+                  JOIN mantenimientos_activos ma ON mc.mantenimiento_activo_id = ma.id
+                  JOIN activos a ON ma.activo_id = a.id
+                  JOIN componentes c ON mc.componente_id = c.id
+                  WHERE mc.mantenimiento_activo_id = ?
+                  AND c.tipo_activo_id = a.tipo_activo_id;
               `;
-              const componentesValues = nuevosComponentes.map((componente) => [
-                mantenimientoActivoId,
-                componente.componente_id,
-                componente.cantidad || 1,
-              ]);
-
-              db.query(queryInsert, [componentesValues], (error) => {
-                if (error) return reject(error);
-                resolve();
+  
+              db.query(queryExistentes, [mantenimientoActivoId], (error, existentes) => {
+                  if (error) {
+                      console.error("Error al consultar componentes existentes:", error);
+                      return reject(error);
+                  }
+  
+                  // Crear un conjunto con los IDs existentes
+                  const existentesSet = new Set(existentes.map((row) => row.componente_id));
+  
+                  // Filtrar nuevos componentes no existentes en la base de datos
+                  const nuevosComponentes = componentes.filter(
+                      (componente) => !existentesSet.has(componente.componente_id)
+                  );
+  
+                  if (nuevosComponentes.length > 0) {
+                      // Validar que los nuevos componentes son válidos para el tipo de activo
+                      const idsNuevos = nuevosComponentes.map((componente) => componente.componente_id);
+                      const queryValidarComponentes = `
+                          SELECT c.id 
+                          FROM componentes c
+                          JOIN activos a ON c.tipo_activo_id = a.tipo_activo_id
+                          JOIN mantenimientos_activos ma ON ma.activo_id = a.id
+                          WHERE c.id IN (?) AND ma.id = ?;
+                      `;
+  
+                      db.query(queryValidarComponentes, [idsNuevos, mantenimientoActivoId], (error, resultados) => {
+                          if (error) {
+                              console.error("Error al validar componentes:", error);
+                              return reject(error);
+                          }
+  
+                          const idsValidos = new Set(resultados.map((row) => row.id));
+                          const componentesInsertar = nuevosComponentes.filter((componente) =>
+                              idsValidos.has(componente.componente_id)
+                          );
+  
+                          if (componentesInsertar.length > 0) {
+                              const queryInsert = `
+                                  INSERT INTO mantenimiento_componentes (mantenimiento_activo_id, componente_id, cantidad)
+                                  VALUES ?;
+                              `;
+                              const componentesValues = componentesInsertar.map((componente) => [
+                                  mantenimientoActivoId,
+                                  componente.componente_id,
+                                  componente.cantidad || 1,
+                              ]);
+  
+                              db.query(queryInsert, [componentesValues], (error) => {
+                                  if (error) {
+                                      console.error("Error al insertar nuevos componentes:", error);
+                                      return reject(error);
+                                  }
+                                  resolve();
+                              });
+                          } else {
+                              console.log("Todos los componentes ya existen o no son válidos.");
+                              resolve();
+                          }
+                      });
+                  } else {
+                      console.log("No hay nuevos componentes para insertar.");
+                      resolve();
+                  }
               });
-            } else {
-              resolve(); // No hay nuevos componentes
-            }
-          });
-        })
+          })
       );
-    }
+  }
+  
+    
 
     // Actualizar observaciones
     if (observaciones !== undefined && observaciones.trim() !== '') {
