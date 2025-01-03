@@ -4,8 +4,9 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const activoController = require('../controllers/activoController');
 const { getProcesoCompra, getCodigoActivo, getDatosCombo, insertarActivo } = require('../controllers/activoCrearController');
 const { updateActivo } = require('../controllers/activoActualizarController');
-
+const { uploadLotes } = require('../controllers/activoLotesController');
 // Ruta para obtener los activos
+const multer = require('multer');
 router.get('/menu', authenticateToken, activoController.getAllActivos);
 
 // Ruta para obtener el siguiente proceso de compra
@@ -25,5 +26,15 @@ router.post('/', authenticateToken, insertarActivo);
 router.get('/:id', authenticateToken, activoController.getActivoById);
 
 router.put('/:id', authenticateToken, updateActivo);
+const upload = multer({ dest: 'upload/' });
+
+// Ruta para cargar lotes de activos
+router.post(
+  '/upload-lotes',
+  authenticateToken,
+
+  upload.single('file'),
+  uploadLotes
+);
 
 module.exports = router;
