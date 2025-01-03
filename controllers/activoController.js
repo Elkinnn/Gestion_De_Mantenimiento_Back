@@ -10,6 +10,7 @@ const activoController = {
             a.codigo,
             a.nombre,
             a.estado,
+            a.tipo_activo_id,
             u.nombre AS ubicacion,
             t.nombre AS tipo,
             p.nombre AS proveedor
@@ -71,5 +72,32 @@ const activoController = {
     });
   },
 };
+
+listarActivosSimplificados: (req, res) => {
+  const query = `
+      SELECT 
+          a.codigo, 
+          a.nombre AS serie, 
+          a.tipo_activo_id,
+          t.nombre AS tipo
+      FROM activos a
+      JOIN tipos_activos t ON a.tipo_activo_id = t.id
+      ORDER BY a.codigo ASC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error al listar activos simplificados:', err);
+      return res.status(500).json({ message: 'Error al listar activos simplificados' });
+    }
+
+    if (results.length === 0) {
+      return res.status(200).json({ message: 'No hay activos disponibles', data: [] });
+    }
+
+    res.status(200).json(results); // Enviar los activos simplificados como respuesta
+  });
+},
+
 
 module.exports = activoController;

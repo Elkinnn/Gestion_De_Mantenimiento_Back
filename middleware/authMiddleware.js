@@ -13,9 +13,11 @@ exports.authenticateToken = (req, res, next) => {
     if (err) {
       return res.status(403).json({ message: 'Token no válido' });
     }
-    req.user = user; // Almacenar datos del usuario decodificados en req.user
+    req.user = user; // user tendrá { id, role, username }
+    console.log('Datos decodificados del token:', req.user); // Debugging opcional
     next();
   });
+  
 };
 
 // Middleware para autorizar por un rol específico
