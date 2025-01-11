@@ -1,5 +1,6 @@
 const db = require("../config/db");
 
+// Reporte de distribución de activos por tipo en mantenimientos
 const getActivosPorTipo = async (req, res) => {
     try {
         const query = `
@@ -17,4 +18,22 @@ const getActivosPorTipo = async (req, res) => {
     }
 };
 
-module.exports = { getActivosPorTipo };
+// Reporte de componentes más utilizados en mantenimientos
+const getComponentesMasUtilizados = async (req, res) => {
+    try {
+        const query = `
+            SELECT c.nombre AS componente, SUM(mc.cantidad) AS cantidad_usada
+            FROM mantenimiento_componentes mc
+            JOIN componentes c ON mc.componente_id = c.id
+            GROUP BY c.nombre
+            ORDER BY cantidad_usada DESC
+        `;
+        const [rows] = await db.promise().query(query);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error obteniendo componentes utilizados:", error);
+        res.status(500).json({ error: "Error obteniendo los datos." });
+    }
+};
+
+module.exports = { getActivosPorTipo, getComponentesMasUtilizados };
