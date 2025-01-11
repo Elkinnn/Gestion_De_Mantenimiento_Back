@@ -33,9 +33,9 @@ const uploadLotes = async (req, res) => {
     }
 
     // Validar número máximo de registros
-    if (data.length > 50) {
+    if (data.length > 100) {
       fs.unlinkSync(req.file.path); // Eliminar archivo temporal
-      return res.status(400).json({ message: 'Error al cargar: El archivo contiene más de 50 activos.', errors: ['exceeds_limit'] });
+      return res.status(400).json({ message: 'Error al cargar: El archivo contiene más de 100 activos.', errors: ['exceeds_limit'] });
     }
 
     // Validar y procesar los datos
