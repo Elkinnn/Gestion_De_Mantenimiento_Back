@@ -36,4 +36,21 @@ const getComponentesMasUtilizados = async (req, res) => {
     }
 };
 
-module.exports = { getActivosPorTipo, getComponentesMasUtilizados };
+const getActividadesMasUtilizadas = async (req, res) => {
+    try {
+        const query = `
+            SELECT a.nombre AS actividad, COUNT(ma.actividad_id) AS cantidad_usada
+            FROM mantenimiento_actividades ma
+            JOIN actividades a ON ma.actividad_id = a.id
+            GROUP BY a.nombre
+            ORDER BY cantidad_usada DESC
+        `;
+        const [rows] = await db.promise().query(query);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error obteniendo actividades utilizadas:", error);
+        res.status(500).json({ error: "Error obteniendo los datos." });
+    }
+};
+
+module.exports = { getActivosPorTipo, getComponentesMasUtilizados, getActividadesMasUtilizadas };
