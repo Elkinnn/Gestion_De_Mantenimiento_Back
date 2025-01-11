@@ -10,7 +10,8 @@ const {
   obtenerActividadesDelActivo,
   actualizarMantenimiento,
   asociarActivoAMantenimiento,
-  verificarActivoEnMantenimiento,// Crear mantenimiento con activos y especificaciones
+  verificarActivoEnMantenimiento,
+  obtenerMantenimientosPorActivo,// Crear mantenimiento con activos y especificaciones
 } = require('../controllers/mantenimientoController');
 
 // Ruta para obtener todos los mantenimientos
@@ -72,5 +73,17 @@ router.get('/activos/:activo_id/verificar', (req, res) => {
   console.log(`GET /api/mantenimientos/activos/${req.params.activo_id}/verificar - Verificando activo`);
   verificarActivoEnMantenimiento(req, res);
 });
+
+
+
+
+
+// Nueva ruta para obtener todos los mantenimientos "Terminados" de un activo específico
+router.get('/activo/:id', (req, res) => {
+  console.log(`GET /api/mantenimientos/activo/${req.params.id} - Obteniendo mantenimientos terminados del activo`);
+  obtenerMantenimientosPorActivo(req, res);
+});
+
+
 
 module.exports = router;

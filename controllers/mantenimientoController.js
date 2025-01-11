@@ -1103,6 +1103,81 @@ const verificarActivoEnMantenimiento = (req, res) => {
 
 
 
+
+
+
+
+
+
+
+const obtenerMantenimientosPorActivo = (req, res) => {
+  const { id } = req.params; // ID del activo recibido en la ruta
+
+  const query = `
+      SELECT 
+          m.id AS mantenimiento_id,
+          m.numero_mantenimiento,
+          p.nombre AS proveedor,
+          u.username AS tecnico,
+          m.fecha_inicio,
+          m.fecha_fin,
+          m.estado,
+          a.nombre AS nombre_activo -- Nombre del activo (número de serie)
+      FROM activos a
+      LEFT JOIN mantenimientos_activos ma ON a.id = ma.activo_id
+      LEFT JOIN mantenimientos m ON ma.mantenimiento_id = m.id
+      LEFT JOIN proveedores p ON m.proveedor_id = p.id
+      LEFT JOIN usuarios u ON m.tecnico_id = u.id
+      WHERE a.id = ?;
+  `;
+
+  db.query(query, [id], (error, results) => {
+      if (error) {
+          console.error('Error al obtener mantenimientos:', error);
+          return res.status(500).json({ error: 'Error al obtener mantenimientos' });
+      }
+
+      if (results.length === 0 || !results[0].mantenimiento_id) {
+          // Si no hay mantenimientos, pero el activo existe, devolvemos solo el nombre
+          const queryNombreActivo = `SELECT nombre FROM activos WHERE id = ?`;
+          db.query(queryNombreActivo, [id], (error, resultado) => {
+              if (error) {
+                  console.error('Error al obtener el nombre del activo:', error);
+                  return res.status(500).json({ error: 'Error al obtener el nombre del activo' });
+              }
+
+              if (resultado.length === 0) {
+                  return res.status(404).json({ message: "Activo no encontrado." });
+              }
+
+              return res.status(200).json({
+                  mantenimientos: [],
+                  nombre: resultado[0].nombre
+              });
+          });
+      } else {
+          res.status(200).json({
+              mantenimientos: results.filter(m => m.mantenimiento_id !== null), // Filtrar resultados vacíos
+              nombre: results[0]?.nombre_activo || "Desconocido"
+          });
+      }
+  });
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 module.exports = {
   obtenerMantenimientos,
   obtenerFiltros,
@@ -1115,4 +1190,5 @@ module.exports = {
   actualizarMantenimiento,
   asociarActivoAMantenimiento,
   verificarActivoEnMantenimiento,
+  obtenerMantenimientosPorActivo,
 };
