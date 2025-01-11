@@ -53,4 +53,46 @@ const getActividadesMasUtilizadas = async (req, res) => {
     }
 };
 
-module.exports = { getActivosPorTipo, getComponentesMasUtilizados, getActividadesMasUtilizadas };
+const getMantenimientosPorPeriodo = async (req, res) => {
+    try {
+        const { fechaInicio, fechaFin, tipoMantenimiento } = req.query;
+
+        let query = `
+            SELECT DATE(m.fecha_inicio) AS fecha, COUNT(m.id) AS cantidad,
+                   CASE 
+                       WHEN m.proveedor_id IS NOT NULL THEN 'Externo'
+                       ELSE 'Interno'
+                   END AS tipo
+            FROM mantenimientos m
+            WHERE 1=1
+        `;
+
+        const params = [];
+
+        if (fechaInicio) {
+            query += ` AND m.fecha_inicio >= ?`;
+            params.push(fechaInicio);
+        }
+        if (fechaFin) {
+            query += ` AND m.fecha_inicio <= ?`;
+            params.push(fechaFin);
+        }
+        if (tipoMantenimiento) {
+            query += ` AND (CASE 
+                                WHEN m.proveedor_id IS NOT NULL THEN 'Externo'
+                                ELSE 'Interno'
+                            END) = ?`;
+            params.push(tipoMantenimiento);
+        }
+
+        query += ` GROUP BY fecha, tipo ORDER BY fecha ASC`;
+
+        const [rows] = await db.promise().query(query, params);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error obteniendo mantenimientos por período:", error);
+        res.status(500).json({ error: "Error obteniendo los datos." });
+    }
+};
+
+module.exports = { getActivosPorTipo, getComponentesMasUtilizados, getActividadesMasUtilizadas, getMantenimientosPorPeriodo };
