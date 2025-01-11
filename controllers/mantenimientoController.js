@@ -1170,6 +1170,89 @@ const obtenerMantenimientosPorActivo = (req, res) => {
 
 
 
+const obtenerDetallesMantenimientoActivo = (req, res) => {
+  const { mantenimientoId, activoId } = req.params;
+
+  if (!mantenimientoId || !activoId) {
+    return res.status(400).json({ error: "Se requieren los parámetros mantenimientoId y activoId." });
+  }
+
+  // Obtener el mantenimiento_activo_id
+  const queryMantenimientoActivo = `
+    SELECT id AS mantenimiento_activo_id 
+    FROM mantenimientos_activos 
+    WHERE mantenimiento_id = ? AND activo_id = ?
+  `;
+
+  db.query(queryMantenimientoActivo, [mantenimientoId, activoId], (error, results) => {
+    if (error) {
+      console.error("Error al obtener el mantenimiento activo:", error);
+      return res.status(500).json({ error: "Error al obtener el mantenimiento activo." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "No hay detalles para este activo en este mantenimiento." });
+    }
+
+    const mantenimientoActivoId = results[0].mantenimiento_activo_id;
+
+    // Consultas para obtener actividades, componentes y observación
+    const queryActividades = `
+      SELECT a.id AS actividad_id, a.nombre AS nombre_actividad
+      FROM mantenimiento_actividades ma
+      INNER JOIN actividades a ON ma.actividad_id = a.id
+      WHERE ma.mantenimiento_activo_id = ?
+    `;
+
+    const queryComponentes = `
+      SELECT c.id AS componente_id, c.nombre AS componente_utilizado
+      FROM mantenimiento_componentes mc
+      INNER JOIN componentes c ON mc.componente_id = c.id
+      WHERE mc.mantenimiento_activo_id = ?
+    `;
+
+    const queryObservacion = `
+      SELECT observacion
+      FROM mantenimiento_observaciones
+      WHERE mantenimiento_activo_id = ?
+      ORDER BY id DESC LIMIT 1
+    `;
+
+    // Ejecutar todas las consultas en paralelo
+    Promise.all([
+      new Promise((resolve, reject) => {
+        db.query(queryActividades, [mantenimientoActivoId], (error, results) => {
+          if (error) reject(error);
+          else resolve(results);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        db.query(queryComponentes, [mantenimientoActivoId], (error, results) => {
+          if (error) reject(error);
+          else resolve(results);
+        });
+      }),
+      new Promise((resolve, reject) => {
+        db.query(queryObservacion, [mantenimientoActivoId], (error, results) => {
+          if (error) reject(error);
+          else resolve(results.length > 0 ? results[0].observacion : "Sin observaciones.");
+        });
+      })
+    ])
+    .then(([actividades, componentes, observacion]) => {
+      res.status(200).json({
+        actividades_realizadas: actividades,
+        componentes_utilizados: componentes,
+        observacion
+      });
+    })
+    .catch(error => {
+      console.error("Error al obtener detalles del mantenimiento activo:", error);
+      res.status(500).json({ error: "Error al obtener detalles del mantenimiento activo." });
+    });
+  });
+};
+
 
 
 
@@ -1192,4 +1275,5 @@ module.exports = {
   asociarActivoAMantenimiento,
   verificarActivoEnMantenimiento,
   obtenerMantenimientosPorActivo,
+  obtenerDetallesMantenimientoActivo,
 };

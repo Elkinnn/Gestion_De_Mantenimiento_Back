@@ -11,7 +11,8 @@ const {
   actualizarMantenimiento,
   asociarActivoAMantenimiento,
   verificarActivoEnMantenimiento,
-  obtenerMantenimientosPorActivo,// Crear mantenimiento con activos y especificaciones
+  obtenerMantenimientosPorActivo,
+  obtenerDetallesMantenimientoActivo,// Crear mantenimiento con activos y especificaciones
 } = require('../controllers/mantenimientoController');
 
 // Ruta para obtener todos los mantenimientos
@@ -75,6 +76,10 @@ router.get('/activos/:activo_id/verificar', (req, res) => {
 });
 
 
+router.get('/detalles/:mantenimientoId/:activoId', (req, res) => {
+  console.log(`GET /api/mantenimientos/detalles/${req.params.mantenimientoId}/${req.params.activoId} - Obteniendo detalles específicos del activo`);
+  obtenerDetallesMantenimientoActivo(req, res);
+});
 
 
 
