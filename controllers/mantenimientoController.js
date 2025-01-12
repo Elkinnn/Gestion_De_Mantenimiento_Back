@@ -33,7 +33,7 @@ const obtenerMantenimientos = (req, res) => {
   if (date) query += ` AND DATE(m.fecha_inicio) = ${db.escape(date)}`; // Filtro de fecha
   if (technician) query += ` AND m.tecnico_id = ${db.escape(technician)}`; // Filtro de técnico
 
-  query += ` GROUP BY m.id ORDER BY m.fecha_inicio DESC;`;
+  query += ` GROUP BY m.id ORDER BY m.numero_mantenimiento DESC;`;  // ⬅️ Ordenar por el número de mantenimiento
 
   db.query(query, (error, results) => {
     if (error) {

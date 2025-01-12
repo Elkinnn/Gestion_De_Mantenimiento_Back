@@ -18,7 +18,7 @@ const activoController = {
         LEFT JOIN ubicaciones u ON a.ubicacion_id = u.id
         LEFT JOIN tipos_activos t ON a.tipo_activo_id = t.id
         LEFT JOIN proveedores p ON a.proveedor_id = p.id
-        ORDER BY a.id ASC
+        ORDER BY a.fecha_adquisicion DESC
     `;
 
     db.query(query, (err, results) => {
