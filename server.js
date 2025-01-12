@@ -10,6 +10,7 @@ const proveedoresRoutes = require('./routes/proveedoresRoutes'); // Rutas de pro
 const especificacionesRoutes = require('./routes/especificacionesRoutes'); // Rutas de especificaciones
 const { authenticateToken } = require('./middleware/authMiddleware'); // Middleware de autenticación
 const { actualizarMantenimientos } = require('./tasks/actualizarMantenimientos');
+const reportesRoutes = require("./routes/reportesRoutes");
 const app = express(); // Inicializar Express
 
 // Middleware global para registrar solicitudes
@@ -54,6 +55,8 @@ app.use('/api/especificaciones', authenticateToken, (req, res, next) => {
   console.log('Entrando a /api/especificaciones');
   next();
 }, especificacionesRoutes);
+
+app.use("/api/reportes", reportesRoutes);
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
