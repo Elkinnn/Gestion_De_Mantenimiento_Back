@@ -1129,7 +1129,7 @@ const obtenerMantenimientosPorActivo = (req, res) => {
       LEFT JOIN proveedores p ON m.proveedor_id = p.id
       LEFT JOIN usuarios u ON m.tecnico_id = u.id
       WHERE a.id = ?
-      AND m.estado = 'Terminado';
+      AND m.estado IN ('Terminado', 'Activo');
   `;
 
   db.query(query, [id], (error, results) => {
